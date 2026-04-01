@@ -42,7 +42,7 @@ users_ws = ensure_worksheet("Users", ["username","name","email","password","role
 players_df = pd.DataFrame(players_ws.get_all_records())
 teams_df = pd.DataFrame(teams_ws.get_all_records())
 
-# ====================== 2026 AGE GROUPS ======================
+# ====================== 2026 AGE GROUPS (Football Manitoba) ======================
 def calculate_age_group(dob_str):
     try:
         dob = datetime.datetime.strptime(str(dob_str).strip(), "%Y-%m-%d").date()
@@ -66,7 +66,7 @@ if len(user_values) <= 1:
 headers = [str(h).strip() for h in user_values[0]]
 user_records = []
 for row in user_values[1:]:
-    record = dict(zip(headers, [str(v).strip() for v in row] + [""]*(len(headers)-len(row))))
+    record = dict(zip(headers, [str(v).strip() for v in row] + [""] * (len(headers) - len(row))))
     if record.get("username"):
         user_records.append(record)
 
@@ -81,10 +81,10 @@ for rec in user_records:
         }
 
 if not credentials["usernames"]:
-    st.error("Add at least one user in Users tab → username=admin, roles=Admin")
+    st.error("Add at least one Admin user in the Users tab (username=admin, roles=Admin)")
     st.stop()
 
-# ====================== AUTHENTICATION (Simplified & Stable) ======================
+# ====================== AUTHENTICATION (Stable for 0.4.x) ======================
 if "authenticator" not in st.session_state:
     authenticator = stauth.Authenticate(
         credentials=credentials,
@@ -95,8 +95,16 @@ if "authenticator" not in st.session_state:
     st.session_state.authenticator = authenticator
     st.session_state.user_roles = {}
 
-# Most reliable call for current version
-name, authentication_status, username = st.session_state.authenticator.login('main')
+# Correct handling for latest version
+try:
+    login_result = st.session_state.authenticator.login(location='main')
+    if login_result is not None:
+        name, authentication_status, username = login_result
+    else:
+        name = authentication_status = username = None
+except Exception as e:
+    st.error(f"Login error: {str(e)}")
+    st.stop()
 
 if authentication_status is False:
     st.error("❌ Username or password is incorrect")
@@ -185,7 +193,7 @@ with tab4:
         c = canvas.Canvas(buffer, pagesize=letter)
         c.drawString(100, 750, "Football Manitoba Registration 2026")
         c.drawString(100, 720, f"{row.get('First Name','')} {row.get('Last Name','')} - {row.get('AgeGroup','')}")
-        c.drawString(100, 690, f"Parent: {row.get('ParentName','')} | Phone: {row.get('ParentPhone','')}")
+        c.drawString(100, 690, f"Parent: {row.get('ParentName','')} | {row.get('ParentPhone','')}")
         c.drawString(100, 660, f"Team: {row.get('Team','')}")
         c.save()
         st.download_button("⬇️ Download PDF", buffer.getvalue(), f"{sel.replace(' ','_')}.pdf", "application/pdf")
@@ -202,9 +210,9 @@ with tab5:
             players_df.at[idx, "Team"] = t_sel
             players_ws.update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
             st.success("Assigned!")
-        st.info("Edit Users sheet for new users/roles (comma-separated).")
+        st.info("Edit the Users sheet directly for new users/roles (comma-separated).")
     else:
         st.info("Admin tools only.")
 
 st.sidebar.button("Logout", on_click=lambda: st.session_state.authenticator.logout('main'))
-st.caption("✅ Stable login | Multi-role (Admin, ReadWrite, ReadOnly, Restricted) | Football Manitoba 2026 Age Groups")
+st.caption("✅ Stable login for latest authenticator | Multi-role support | 2026 Football Manitoba Age Groups")
