@@ -52,7 +52,7 @@ users_ws = ensure_worksheet("Users", ["username","name","email","password","role
 players_df = pd.DataFrame(players_ws.get_all_records())
 teams_df = pd.DataFrame(teams_ws.get_all_records())
 
-# ====================== AGE GROUP (Football Manitoba 2026 Guidelines) ======================
+# ====================== AGE GROUP (Football Manitoba 2026) ======================
 def calculate_age_group(dob_str):
     try:
         dob = datetime.datetime.strptime(str(dob_str).strip(), "%Y-%m-%d").date()
@@ -96,10 +96,10 @@ for rec in user_records:
         }
 
 if not credentials["usernames"]:
-    st.error("❌ No users found. Add at least one row in Users tab: admin | Admin User | admin@yourdomain.com | changeme123 | Admin")
+    st.error("❌ No users found in Users sheet. Add at least one Admin user (username: admin, roles: Admin).")
     st.stop()
 
-# ====================== AUTHENTICATION (Fixed for new streamlit-authenticator) ======================
+# ====================== AUTHENTICATION (Fixed for latest streamlit-authenticator) ======================
 if "authenticator" not in st.session_state:
     authenticator = stauth.Authenticate(
         credentials=credentials,
@@ -110,8 +110,16 @@ if "authenticator" not in st.session_state:
     st.session_state.authenticator = authenticator
     st.session_state.user_roles = {}
 
-# Updated login call - location first
-name, authentication_status, username = st.session_state.authenticator.login(location='main')
+# Use fields to force a clear "Login" button and avoid form submit error
+name, authentication_status, username = st.session_state.authenticator.login(
+    location='main',
+    fields={
+        'Form name': 'Login',
+        'Username': 'Username',
+        'Password': 'Password',
+        'Login': 'Login'   # This ensures the submit button appears correctly
+    }
+)
 
 if authentication_status is False:
     st.error("Username/password is incorrect")
@@ -120,7 +128,7 @@ elif authentication_status is None:
     st.warning("Please enter your username and password")
     st.stop()
 
-# Load roles
+# Load roles safely
 if username and username not in st.session_state.user_roles:
     user_row = next((u for u in user_records if u.get("username") == username), None)
     roles_str = user_row.get("roles", "") if user_row else ""
@@ -207,7 +215,7 @@ with tab3:
 with tab4:
     st.header("📄 PDF Registration Forms & Export")
     player_options = (players_df["First Name"].astype(str) + " " + players_df["Last Name"].astype(str)).tolist()
-    selected = st.selectbox("Select player", player_options) if player_options else None
+    selected = st.selectbox("Select player for PDF", player_options) if player_options else None
     
     if selected and st.button("Generate PDF"):
         idx = player_options.index(selected)
@@ -238,11 +246,10 @@ with tab5:
             players_ws.update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
             st.success("Player assigned!")
         
-        st.info("Add/edit users directly in the **Users** Google Sheet tab. Roles are comma-separated (e.g. ReadWrite,Restricted).")
+        st.info("Manage users by editing the **Users** sheet directly in Google Sheets (roles comma-separated).")
     else:
-        st.info("Super Admin tools visible only to Admin role.")
+        st.info("Super Admin tools are only for Admin role.")
 
-# Logout (updated for new API)
 st.sidebar.button("Logout", on_click=lambda: st.session_state.authenticator.logout(location='main'))
 
-st.caption("✅ Fixed for latest streamlit-authenticator | Multi-role (Admin / ReadWrite / ReadOnly / Restricted) | Football Manitoba 2026 Age Groups | Auto tab creation")
+st.caption("✅ Fixed login form + submit button | Multi-role support | Football Manitoba 2026 Age Groups | Auto tab creation")
