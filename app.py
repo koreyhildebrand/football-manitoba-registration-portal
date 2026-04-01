@@ -11,7 +11,7 @@ import io
 st.set_page_config(page_title="Football Manitoba Registration Portal", layout="wide", page_icon="🏈")
 st.title("🏈 Football Manitoba Admin Registration Portal")
 
-# ====================== GOOGLE SHEETS CONNECTION ======================
+# ====================== GOOGLE SHEETS + AUTO TABS ======================
 @st.cache_resource
 def get_gsheet():
     try:
@@ -21,7 +21,7 @@ def get_gsheet():
         client = gspread.authorize(creds)
         return client.open("RegistrationPortal")
     except Exception as e:
-        st.error(f"❌ Sheet connection failed. Verify secrets and sheet name 'RegistrationPortal'. Error: {str(e)}")
+        st.error(f"❌ Sheet connection failed: {str(e)}")
         st.stop()
 
 sheet = get_gsheet()
@@ -30,7 +30,7 @@ def ensure_worksheet(name, headers):
     try:
         return sheet.worksheet(name)
     except gspread.exceptions.WorksheetNotFound:
-        st.info(f"✅ Creating tab: {name}")
+        st.info(f"Creating tab: {name}")
         ws = sheet.add_worksheet(title=name, rows=200, cols=30)
         ws.append_row(headers)
         return ws
@@ -42,7 +42,7 @@ users_ws = ensure_worksheet("Users", ["username","name","email","password","role
 players_df = pd.DataFrame(players_ws.get_all_records())
 teams_df = pd.DataFrame(teams_ws.get_all_records())
 
-# ====================== AGE GROUP (Football Manitoba 2026) ======================
+# ====================== 2026 AGE GROUPS ======================
 def calculate_age_group(dob_str):
     try:
         dob = datetime.datetime.strptime(str(dob_str).strip(), "%Y-%m-%d").date()
@@ -58,7 +58,7 @@ def calculate_age_group(dob_str):
 if "Date of Birth" in players_df.columns:
     players_df["AgeGroup"] = players_df["Date of Birth"].apply(calculate_age_group)
 
-# ====================== USERS & AUTH (Simplified - no fields dict) ======================
+# ====================== USERS ======================
 user_values = users_ws.get_all_values()
 if len(user_values) <= 1:
     users_ws.append_row(["username","name","email","password","roles"])
@@ -66,7 +66,7 @@ if len(user_values) <= 1:
 headers = [str(h).strip() for h in user_values[0]]
 user_records = []
 for row in user_values[1:]:
-    record = dict(zip(headers, [str(v).strip() for v in row] + [""] * (len(headers) - len(row))))
+    record = dict(zip(headers, [str(v).strip() for v in row] + [""]*(len(headers)-len(row))))
     if record.get("username"):
         user_records.append(record)
 
@@ -81,9 +81,10 @@ for rec in user_records:
         }
 
 if not credentials["usernames"]:
-    st.error("Add at least one user in Users tab: username=admin, roles=Admin")
+    st.error("Add at least one user in Users tab → username=admin, roles=Admin")
     st.stop()
 
+# ====================== AUTHENTICATION (Simplified & Stable) ======================
 if "authenticator" not in st.session_state:
     authenticator = stauth.Authenticate(
         credentials=credentials,
@@ -94,14 +95,14 @@ if "authenticator" not in st.session_state:
     st.session_state.authenticator = authenticator
     st.session_state.user_roles = {}
 
-# Safe login call - minimal parameters
-name, authentication_status, username = st.session_state.authenticator.login(location='main')
+# Most reliable call for current version
+name, authentication_status, username = st.session_state.authenticator.login('main')
 
 if authentication_status is False:
-    st.error("❌ Username or password incorrect")
+    st.error("❌ Username or password is incorrect")
     st.stop()
 elif authentication_status is None:
-    st.warning("Enter username and password")
+    st.warning("Please enter your username and password")
     st.stop()
 
 # Load roles
@@ -120,7 +121,7 @@ st.sidebar.success(f"👤 {name} ({username})")
 st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
 
 if not can_ro:
-    st.error("No access privileges.")
+    st.error("You have no access privileges.")
     st.stop()
 
 # ====================== TABS ======================
@@ -130,34 +131,34 @@ with tab1:
     st.header("Player Roster")
     display_cols = ["First Name", "Last Name", "Date of Birth", "AgeGroup", "Address", "Weight", "Years Experience", "ParentName", "ParentPhone", "ParentEmail", "Secondary Emergency Contact Name", "Team"]
     df_display = players_df[[c for c in display_cols if c in players_df.columns]].copy()
-    search = st.text_input("Search", "")
+    search = st.text_input("🔍 Search players", "")
     if search:
-        df_display = df_display[df_display.apply(lambda r: r.astype(str).str.contains(search, case=False).any(), axis=1)]
+        df_display = df_display[df_display.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)]
     edited = st.data_editor(df_display, num_rows="dynamic", use_container_width=True)
-    if st.button("💾 Save Players"):
-        for c in edited.columns:
-            players_df[c] = edited[c]
-        players_ws.update([players_df.columns.tolist()] + players_df.fillna("").values.tolist())
-        st.success("Saved!")
+    if st.button("💾 Save Player Changes", type="primary"):
+        for col in edited.columns:
+            players_df[col] = edited[col]
+        players_ws.update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
+        st.success("✅ Saved!")
 
 with tab2:
     st.header("Teams & Coaches")
     if can_rw:
         edited_teams = st.data_editor(teams_df, num_rows="dynamic", use_container_width=True)
-        if st.button("Save Teams"):
-            teams_ws.update([edited_teams.columns.tolist()] + edited_teams.fillna("").values.tolist())
+        if st.button("💾 Save Teams"):
+            teams_ws.update([edited_teams.columns.values.tolist()] + edited_teams.fillna("").values.tolist())
             st.success("Saved!")
-        with st.expander("Create New Team"):
+        with st.expander("➕ Create New Team"):
             t_name = st.text_input("Team Name")
-            t_div = st.selectbox("Division", ["U10 Cruncher","U12 Atom","U14 PeeWee","U16 Bantam"])
+            t_div = st.selectbox("Division", ["U10 Cruncher", "U12 Atom", "U14 PeeWee", "U16 Bantam"])
             t_coach = st.text_input("Coach Name")
-            if st.button("Create"):
-                new = {"TeamID": len(teams_df)+1, "TeamName": t_name, "Division": t_div, "CoachName": t_coach, "CoachPhone": "", "CoachEmail": "", "SeasonYear": 2026}
-                teams_df = pd.concat([teams_df, pd.DataFrame([new])], ignore_index=True)
-                teams_ws.update([teams_df.columns.tolist()] + teams_df.fillna("").values.tolist())
-                st.success("Team created!")
+            if st.button("Create Team"):
+                new_row = {"TeamID": len(teams_df)+1, "TeamName": t_name, "Division": t_div, "CoachName": t_coach, "CoachPhone": "", "CoachEmail": "", "SeasonYear": 2026}
+                teams_df = pd.concat([teams_df, pd.DataFrame([new_row])], ignore_index=True)
+                teams_ws.update([teams_df.columns.values.tolist()] + teams_df.fillna("").values.tolist())
+                st.success(f"Team {t_name} created!")
     else:
-        st.info("View only.")
+        st.info("View-only mode.")
 
 with tab3:
     if can_restricted:
@@ -165,45 +166,45 @@ with tab3:
         health_cols = ["First Name","Last Name","Health Number","History of Concussion","Glasses/Contacts","Asthma","Diabetic","Allergies","Injuries in past year","Epilepsy","Hearing problems","Heart Condition","Medication","Surgeries in last year","ExplanationIfYes","MedicationLists","AdditionalInfo"]
         avail = [c for c in health_cols if c in players_df.columns]
         edited_h = st.data_editor(players_df[avail], num_rows="dynamic", use_container_width=True)
-        if st.button("Save Health Data"):
+        if st.button("💾 Save Restricted Data"):
             for c in edited_h.columns:
                 players_df[c] = edited_h[c]
-            players_ws.update([players_df.columns.tolist()] + players_df.fillna("").values.tolist())
-            st.success("Saved securely!")
+            players_ws.update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
+            st.success("🔒 Saved securely!")
     else:
         st.warning("🔒 Restricted access denied.")
 
 with tab4:
-    st.header("Export")
+    st.header("📄 Export")
     player_list = (players_df["First Name"].astype(str) + " " + players_df["Last Name"].astype(str)).tolist()
-    sel = st.selectbox("Player PDF", player_list) if player_list else None
+    sel = st.selectbox("Generate PDF for", player_list) if player_list else None
     if sel and st.button("Generate PDF"):
         idx = player_list.index(sel)
         row = players_df.iloc[idx]
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=letter)
-        c.drawString(100, 750, "Football Manitoba 2026 Registration")
+        c.drawString(100, 750, "Football Manitoba Registration 2026")
         c.drawString(100, 720, f"{row.get('First Name','')} {row.get('Last Name','')} - {row.get('AgeGroup','')}")
-        c.drawString(100, 690, f"Parent: {row.get('ParentName','')} | {row.get('ParentPhone','')}")
+        c.drawString(100, 690, f"Parent: {row.get('ParentName','')} | Phone: {row.get('ParentPhone','')}")
         c.drawString(100, 660, f"Team: {row.get('Team','')}")
         c.save()
-        st.download_button("Download PDF", buffer.getvalue(), f"{sel.replace(' ','_')}.pdf", "application/pdf")
-    if st.button("Export CSV"):
-        st.download_button("Download CSV", players_df.to_csv(index=False), "players_2026.csv", "text/csv")
+        st.download_button("⬇️ Download PDF", buffer.getvalue(), f"{sel.replace(' ','_')}.pdf", "application/pdf")
+    if st.button("Export All as CSV"):
+        st.download_button("⬇️ Download CSV", players_df.to_csv(index=False), "players_2026.csv", "text/csv")
 
 with tab5:
     if is_admin:
-        st.header("Super Admin")
-        p_sel = st.selectbox("Assign Player", player_list) if player_list else None
-        t_sel = st.selectbox("To Team", teams_df["TeamName"].tolist() if not teams_df.empty else ["No teams"])
-        if st.button("Assign"):
+        st.header("⚙️ Super Admin")
+        p_sel = st.selectbox("Player", player_list) if player_list else None
+        t_sel = st.selectbox("Team", teams_df["TeamName"].tolist() if not teams_df.empty else ["No teams"])
+        if st.button("Assign Player to Team"):
             idx = player_list.index(p_sel)
             players_df.at[idx, "Team"] = t_sel
-            players_ws.update([players_df.columns.tolist()] + players_df.fillna("").values.tolist())
+            players_ws.update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
             st.success("Assigned!")
-        st.info("Edit Users sheet directly for new roles (comma-separated).")
+        st.info("Edit Users sheet for new users/roles (comma-separated).")
     else:
-        st.info("Admin only.")
+        st.info("Admin tools only.")
 
-st.sidebar.button("Logout", on_click=lambda: st.session_state.authenticator.logout(location='main'))
-st.caption("✅ Simplified login | Multi-role | Restricted data protected | 2026 Age Groups")
+st.sidebar.button("Logout", on_click=lambda: st.session_state.authenticator.logout('main'))
+st.caption("✅ Stable login | Multi-role (Admin, ReadWrite, ReadOnly, Restricted) | Football Manitoba 2026 Age Groups")
