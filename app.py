@@ -52,7 +52,7 @@ users_ws = ensure_worksheet("Users", ["username","name","email","password","role
 players_df = pd.DataFrame(players_ws.get_all_records())
 teams_df = pd.DataFrame(teams_ws.get_all_records())
 
-# ====================== AGE GROUP (Football Manitoba 2026) ======================
+# ====================== AGE GROUP (Football Manitoba 2026 Guidelines) ======================
 def calculate_age_group(dob_str):
     try:
         dob = datetime.datetime.strptime(str(dob_str).strip(), "%Y-%m-%d").date()
@@ -96,7 +96,7 @@ for rec in user_records:
         }
 
 if not credentials["usernames"]:
-    st.error("❌ No users found in Users sheet. Add at least one Admin user (username: admin, roles: Admin).")
+    st.error("❌ No users found. Add at least one Admin row in Users tab: username=admin, roles=Admin")
     st.stop()
 
 # ====================== AUTHENTICATION (Fixed for latest streamlit-authenticator) ======================
@@ -110,25 +110,25 @@ if "authenticator" not in st.session_state:
     st.session_state.authenticator = authenticator
     st.session_state.user_roles = {}
 
-# Use fields to force a clear "Login" button and avoid form submit error
+# Correct login call with fields dict to ensure Submit button appears
 name, authentication_status, username = st.session_state.authenticator.login(
     location='main',
     fields={
-        'Form name': 'Login',
+        'Form name': 'Login to Registration Portal',
         'Username': 'Username',
         'Password': 'Password',
-        'Login': 'Login'   # This ensures the submit button appears correctly
+        'Login': 'Login'
     }
 )
 
 if authentication_status is False:
-    st.error("Username/password is incorrect")
+    st.error("❌ Username or password is incorrect")
     st.stop()
 elif authentication_status is None:
     st.warning("Please enter your username and password")
     st.stop()
 
-# Load roles safely
+# Load roles
 if username and username not in st.session_state.user_roles:
     user_row = next((u for u in user_records if u.get("username") == username), None)
     roles_str = user_row.get("roles", "") if user_row else ""
@@ -147,7 +147,7 @@ if not can_ro:
     st.error("You have no access privileges.")
     st.stop()
 
-# ====================== MAIN TABS ======================
+# ====================== MAIN TABS (Players, Teams, Restricted, Export, Admin) ======================
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Players", "🏈 Teams & Coaches", "🔒 Restricted Health", "📄 Export", "⚙️ Admin"])
 
 with tab1:
@@ -246,10 +246,10 @@ with tab5:
             players_ws.update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
             st.success("Player assigned!")
         
-        st.info("Manage users by editing the **Users** sheet directly in Google Sheets (roles comma-separated).")
+        st.info("Add/edit users directly in the **Users** Google Sheet tab (roles comma-separated, e.g. ReadWrite,Restricted).")
     else:
-        st.info("Super Admin tools are only for Admin role.")
+        st.info("Super Admin tools are only visible to Admin role.")
 
 st.sidebar.button("Logout", on_click=lambda: st.session_state.authenticator.logout(location='main'))
 
-st.caption("✅ Fixed login form + submit button | Multi-role support | Football Manitoba 2026 Age Groups | Auto tab creation")
+st.caption("✅ Login form fixed with explicit fields | Multi-role (Admin / ReadWrite / ReadOnly / Restricted) | 2026 Football Manitoba Age Groups | Auto tab & header creation")
