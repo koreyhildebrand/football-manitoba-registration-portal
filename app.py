@@ -109,7 +109,8 @@ if authentication_status is True:
     with tab1:
         st.header("Player Roster")
         display_cols = ["First Name", "Last Name", "Date of Birth", "AgeGroup", "Address", "Weight", "Years Experience", "ParentName", "ParentPhone", "ParentEmail", "Secondary Emergency Contact Name", "Team", "RegisteredCamps"]
-        df_display = players_df[[c for c in display_cols if c in players_df.columns]].copy()
+        available_cols = [c for c in display_cols if c in players_df.columns]
+        df_display = players_df[available_cols].copy()
         search = st.text_input("🔍 Search players", key="player_search")
         if search:
             df_display = df_display[df_display.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)]
@@ -194,9 +195,12 @@ if authentication_status is True:
             st.subheader("View Players by Team")
             if not teams_df.empty:
                 selected_team = st.selectbox("Select Team", teams_df["TeamName"], key="team_view_select")
-                team_players = players_df[players_df["Team"] == selected_team]
+                team_players = players_df[players_df["Team"] == selected_team].copy()
                 if not team_players.empty:
-                    st.dataframe(team_players[["First Name", "Last Name", "AgeGroup", "RegisteredCamps"]], use_container_width=True)
+                    # Safe column selection
+                    view_cols = ["First Name", "Last Name", "AgeGroup", "RegisteredCamps"]
+                    available_view_cols = [c for c in view_cols if c in team_players.columns]
+                    st.dataframe(team_players[available_view_cols], use_container_width=True)
                 else:
                     st.info(f"No players assigned to {selected_team} yet.")
             else:
@@ -244,4 +248,4 @@ elif authentication_status is False:
 elif authentication_status is None:
     st.warning("Please enter your username and password")
 
-st.caption("✅ St. Vital Mustangs Registration Portal | Multi-role access | Team & Camp Management")
+st.caption("✅ St. Vital Mustangs Registration Portal | Multi-role | Team & Camp Management")
