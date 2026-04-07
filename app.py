@@ -28,13 +28,20 @@ sheet = get_gsheet()
 
 def ensure_worksheet(name, headers):
     try:
-        return sheet.worksheet(name)
+        ws = sheet.worksheet(name)
+        existing_headers = ws.row_values(1)
+        # Add any missing columns
+        missing = [h for h in headers if h not in existing_headers]
+        if missing:
+            ws.append_row(existing_headers + missing, table_range="A1")
+        return ws
     except gspread.exceptions.WorksheetNotFound:
         st.info(f"Creating tab: {name}")
-        ws = sheet.add_worksheet(title=name, rows=200, cols=30)
+        ws = sheet.add_worksheet(title=name, rows=200, cols=40)
         ws.append_row(headers)
         return ws
 
+# Ensure all required columns exist
 players_ws = ensure_worksheet("Players", ["First Name","Last Name","Date of Birth","Address","Weight","Years Experience","ParentName","ParentPhone","ParentEmail","Secondary Emergency Contact Name","Secondary Emergency Contact Phone","Secondary Emergency Contact Email","Team","AgeGroup","Health Number","History of Concussion","Glasses/Contacts","Asthma","Diabetic","Allergies","Injuries in past year","Epilepsy","Hearing problems","Heart Condition","Medication","Surgeries in last year","ExplanationIfYes","MedicationLists","AdditionalInfo","RegisteredCamps"])
 teams_ws = ensure_worksheet("Teams", ["TeamID","TeamName","Division","CoachName","CoachPhone","CoachEmail","SeasonYear"])
 users_ws = ensure_worksheet("Users", ["username","name","email","password","roles"])
@@ -43,6 +50,12 @@ camps_ws = ensure_worksheet("Camps", ["CampID","CampName","Date","Location","Des
 players_df = pd.DataFrame(players_ws.get_all_records())
 teams_df = pd.DataFrame(teams_ws.get_all_records())
 camps_df = pd.DataFrame(camps_ws.get_all_records())
+
+# Add missing columns in DataFrame if needed
+if "RegisteredCamps" not in players_df.columns:
+    players_df["RegisteredCamps"] = ""
+if "AgeGroup" not in players_df.columns:
+    players_df["AgeGroup"] = ""
 
 # ====================== AGE GROUPS ======================
 def calculate_age_group(dob_str):
@@ -174,10 +187,10 @@ if authentication_status is True:
         st.subheader(f"Registered Players – {selected_year} Season")
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1: st.metric("Total Players", len(players_df))
-        with col2: st.metric("U10 Cruncher", len(players_df[players_df.get("AgeGroup", "") == "U10 Cruncher"]))
-        with col3: st.metric("U12 Atom", len(players_df[players_df.get("AgeGroup", "") == "U12 Atom"]))
-        with col4: st.metric("U14 PeeWee", len(players_df[players_df.get("AgeGroup", "") == "U14 PeeWee"]))
-        with col5: st.metric("U16 Bantam", len(players_df[players_df.get("AgeGroup", "") == "U16 Bantam"]))
+        with col2: st.metric("U10 Cruncher", len(players_df[players_df.get("AgeGroup", pd.Series([""])) == "U10 Cruncher"]))
+        with col3: st.metric("U12 Atom", len(players_df[players_df.get("AgeGroup", pd.Series([""])) == "U12 Atom"]))
+        with col4: st.metric("U14 PeeWee", len(players_df[players_df.get("AgeGroup", pd.Series([""])) == "U14 PeeWee"]))
+        with col5: st.metric("U16 Bantam", len(players_df[players_df.get("AgeGroup", pd.Series([""])) == "U16 Bantam"]))
 
         st.subheader("Teams & Coaches Management")
         if can_rw:
@@ -248,8 +261,8 @@ if authentication_status is True:
                     if st.button("Register Selected Players", key="register_camp_btn"):
                         for p in selected_players:
                             idx = players_df[(players_df["First Name"] + " " + players_df["Last Name"]) == p].index[0]
-                            current = players_df.at[idx, "RegisteredCamps"] or ""
-                            new_val = f"{current}, {selected_camp}" if current else selected_camp
+                            current = str(players_df.at[idx, "RegisteredCamps"]) if "RegisteredCamps" in players_df.columns else ""
+                            new_val = f"{current}, {selected_camp}" if current.strip() else selected_camp
                             players_df.at[idx, "RegisteredCamps"] = new_val
                         players_ws.update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
                         st.success(f"✅ {len(selected_players)} player(s) registered to {selected_camp}")
@@ -265,4 +278,4 @@ elif authentication_status is False:
 elif authentication_status is None:
     st.warning("Please enter your username and password")
 
-st.caption("✅ St. Vital Mustangs Registration Portal | Safe column handling added")
+st.caption("✅ St. Vital Mustangs Registration Portal | All columns safely handled")
