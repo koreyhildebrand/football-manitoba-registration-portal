@@ -4,7 +4,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 import datetime
 import streamlit_authenticator as stauth
-import hashlib
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -24,23 +23,32 @@ user_data = users_ws.get_all_records()
 
 # Build credentials and auto-hash plain passwords
 credentials = {"usernames": {}}
-for user in user_data:
-    uname = user.get("username", "").strip()
-    if uname:
-        password = user.get("password", "changeme123")
-        # Auto-hash if it's still plain text
-        if not str(password).startswith("$2b$"):
-            hashed = stauth.Hasher([password]).generate()[0]
-            # Update sheet with hashed password (one-time)
-            row_num = user_data.index(user) + 2
-            users_ws.update_cell(row_num, 4, hashed)   # Column D = password
-            password = hashed
+updated = False
+
+for i, user in enumerate(user_data):
+    uname = str(user.get("username", "")).strip()
+    if not uname:
+        continue
         
-        credentials["usernames"][uname] = {
-            "name": user.get("name", uname),
-            "email": user.get("email", ""),
-            "password": password
-        }
+    password = str(user.get("password", "changeme123")).strip()
+    
+    # Auto-hash if it's still plain text
+    if not password.startswith("$2b$") and password != "":
+        try:
+            hasher = stauth.Hasher([password])
+            hashed_pw = hasher.generate()[0]
+            # Update the sheet with hashed password
+            users_ws.update_cell(i + 2, 4, hashed_pw)  # Column D = password
+            password = hashed_pw
+            updated = True
+        except:
+            pass  # Skip if hashing fails
+
+    credentials["usernames"][uname] = {
+        "name": user.get("name", uname),
+        "email": user.get("email", ""),
+        "password": password
+    }
 
 if "authenticator" not in st.session_state:
     authenticator = stauth.Authenticate(
@@ -58,15 +66,13 @@ name = st.session_state.get('name')
 username = st.session_state.get('username')
 
 if authentication_status is True:
-    st.success(f"Logged in as {name}")
-    # Rest of your app (Players, Registrar, etc.) goes here...
-    st.info("Login successful! The rest of the app will be loaded in the next update.")
+    st.success(f"✅ Logged in successfully as **{name}**")
+    st.info("Login is working! The full portal will be loaded in the next step.")
 
 elif authentication_status is False:
     st.error("❌ Invalid username or password")
-    st.info("Make sure you're using the exact username from the Users tab.")
-
+    st.info("Try: **admin** / **changeme123**")
 else:
     st.warning("Please enter your username and password")
 
-st.caption("St. Vital Mustangs Registration Portal - Login Debug Mode")
+st.caption("St. Vital Mustangs Registration Portal - Login Fixed")
