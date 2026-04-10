@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v1.9"   # Added Refresh button on Events page
+VERSION = "v2.0"   # Events table column order: CheckIn, First Name, Last Name, Event Name
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -342,7 +342,6 @@ if authentication_status is True:
     elif page == "🏕️ Events":
         st.header("🏕️ Events – Registered Participants & Check-In")
 
-        # Refresh button for the Events page
         if st.button("🔄 Refresh Events & Registrations", type="primary"):
             st.cache_data.clear()
             st.rerun()
@@ -366,9 +365,22 @@ if authentication_status is True:
                         if "CheckInTime" not in filtered_reg.columns:
                             filtered_reg["CheckInTime"] = ""
 
-                        name_col = next((col for col in ["First Name", "Last Name", "Name", "Player Name"] if col in filtered_reg.columns), None)
-                        if name_col and "First Name" in filtered_reg.columns and "Last Name" in filtered_reg.columns:
-                            filtered_reg["Player Name"] = filtered_reg["First Name"].astype(str) + " " + filtered_reg["Last Name"].astype(str)
+                        # Reorder columns: CheckIn first, then First Name, Last Name, Event Name
+                        cols_order = []
+                        if "CheckIn" in filtered_reg.columns:
+                            cols_order.append("CheckIn")
+                        if "First Name" in filtered_reg.columns:
+                            cols_order.append("First Name")
+                        if "Last Name" in filtered_reg.columns:
+                            cols_order.append("Last Name")
+                        if "EventName" in filtered_reg.columns or "Event" in filtered_reg.columns:
+                            cols_order.append(next((c for c in ["EventName", "Event"] if c in filtered_reg.columns), None))
+
+                        # Add remaining columns
+                        remaining = [c for c in filtered_reg.columns if c not in cols_order]
+                        cols_order.extend(remaining)
+
+                        filtered_reg = filtered_reg[cols_order]
 
                         edited_reg = st.data_editor(
                             filtered_reg,
