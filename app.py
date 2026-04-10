@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v2.0"   # Events table column order: CheckIn, First Name, Last Name, Event Name
+VERSION = "v2.1"   # Refresh button on Team Assignments + auto-clear coach field
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -196,6 +196,10 @@ if authentication_status is True:
         elif subpage == "Team Assignments":
             st.subheader("👥 Team Assignments")
 
+            if st.button("🔄 Refresh Teams & Players", type="primary"):
+                st.cache_data.clear()
+                st.rerun()
+
             show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
 
             if show_unassigned:
@@ -239,7 +243,7 @@ if authentication_status is True:
 
                 if t_sel == "— Create New Team —":
                     st.subheader("Create New Team")
-                    with st.form("new_team_form"):
+                    with st.form("new_team_form", clear_on_submit=True):
                         new_team_name = st.text_input("New Team Name", value=f"{player_age_group} Team")
                         new_coach = st.text_input("Coach Name (optional)")
                         submitted = st.form_submit_button("Create Team & Assign Player")
@@ -251,8 +255,9 @@ if authentication_status is True:
 
                                 players_df.at[idx, "Team"] = new_team_name
                                 sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
+
                                 st.success(f"✅ New team '{new_team_name}' created and {p_sel} assigned!")
-                                st.rerun()
+                                st.rerun()   # Refresh so new team appears immediately
 
         elif subpage == "Event Creation":
             st.subheader("📅 Upcoming & Ongoing Events")
@@ -365,22 +370,9 @@ if authentication_status is True:
                         if "CheckInTime" not in filtered_reg.columns:
                             filtered_reg["CheckInTime"] = ""
 
-                        # Reorder columns: CheckIn first, then First Name, Last Name, Event Name
-                        cols_order = []
-                        if "CheckIn" in filtered_reg.columns:
-                            cols_order.append("CheckIn")
-                        if "First Name" in filtered_reg.columns:
-                            cols_order.append("First Name")
-                        if "Last Name" in filtered_reg.columns:
-                            cols_order.append("Last Name")
-                        if "EventName" in filtered_reg.columns or "Event" in filtered_reg.columns:
-                            cols_order.append(next((c for c in ["EventName", "Event"] if c in filtered_reg.columns), None))
-
-                        # Add remaining columns
-                        remaining = [c for c in filtered_reg.columns if c not in cols_order]
-                        cols_order.extend(remaining)
-
-                        filtered_reg = filtered_reg[cols_order]
+                        name_col = next((col for col in ["First Name", "Last Name", "Name", "Player Name"] if col in filtered_reg.columns), None)
+                        if name_col and "First Name" in filtered_reg.columns and "Last Name" in filtered_reg.columns:
+                            filtered_reg["Player Name"] = filtered_reg["First Name"].astype(str) + " " + filtered_reg["Last Name"].astype(str)
 
                         edited_reg = st.data_editor(
                             filtered_reg,
