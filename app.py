@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v2.3"   # Fixed duplicate 'Coach' header in Teams sheet
+VERSION = "v2.4"   # Added Team Summary box on Team Assignments
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -63,7 +63,7 @@ if authentication_status is True:
             else:
                 data = ws.get_all_records()
             df = pd.DataFrame(data)
-            # Clean duplicate column names if any
+            # Clean duplicate column names
             if not df.empty:
                 df.columns = pd.Index([f"{col}_{i}" if list(df.columns).count(col) > 1 else col 
                                      for i, col in enumerate(df.columns)])
@@ -76,9 +76,8 @@ if authentication_status is True:
             st.error(f"Error loading {ws_name}: {str(e)}")
             return pd.DataFrame()
 
-    # Load sheets with safe headers for Teams
     players_df = get_worksheet_data("Players")
-    teams_df = get_worksheet_data("Teams", expected_headers=["TeamName", "Division", "Coach"])  # Force clean headers
+    teams_df = get_worksheet_data("Teams", expected_headers=["TeamName", "Division", "Coach"])
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
@@ -208,6 +207,17 @@ if authentication_status is True:
             if st.button("🔄 Refresh Teams & Players", type="primary"):
                 st.cache_data.clear()
                 st.rerun()
+
+            # === NEW: Team Summary Box ===
+            st.subheader("Current Team Roster Summary")
+            if not teams_df.empty and "TeamName" in teams_df.columns:
+                team_summary = players_df.groupby("Team")["First Name"].count().reset_index()
+                team_summary.columns = ["TeamName", "Players Assigned"]
+                team_summary = team_summary.merge(teams_df[["TeamName", "Division"]], on="TeamName", how="left")
+                team_summary = team_summary.fillna({"Division": "Unknown"})
+                st.dataframe(team_summary[["TeamName", "Division", "Players Assigned"]], use_container_width=True, hide_index=True)
+            else:
+                st.info("No teams created yet.")
 
             show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
 
