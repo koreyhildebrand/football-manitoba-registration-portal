@@ -160,82 +160,92 @@ if authentication_status is True:
             st.success("✅ Saved!")
 
     elif page == "📋 Registrar":
-        st.header("📋 Registrar Dashboard")
-        selected_year = st.selectbox("Select Season Year", [2024, 2025, 2026, 2027], index=2)
+        st.header("📋 Registrar")
 
-        st.subheader(f"Registered Players – {selected_year} Season")
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1: st.metric("Total Players", len(players_df))
-        with col2: st.metric("U10 Cruncher", len(players_df[players_df.get("AgeGroup", "") == "U10 Cruncher"]))
-        with col3: st.metric("U12 Atom", len(players_df[players_df.get("AgeGroup", "") == "U12 Atom"]))
-        with col4: st.metric("U14 PeeWee", len(players_df[players_df.get("AgeGroup", "") == "U14 PeeWee"]))
-        with col5: st.metric("U16 Bantam", len(players_df[players_df.get("AgeGroup", "") == "U16 Bantam"]))
+        # Sub-navigation buttons inside Registrar
+        sub_col1, sub_col2, sub_col3 = st.columns(3)
+        with sub_col1:
+            if st.button("📊 Dashboard", key="reg_dashboard", use_container_width=True):
+                st.session_state.reg_subpage = "Dashboard"
+        with sub_col2:
+            if st.button("👥 Team Assignments", key="reg_assign", use_container_width=True):
+                st.session_state.reg_subpage = "Team Assignments"
+        with sub_col3:
+            if st.button("📅 Event Creation", key="reg_event", use_container_width=True):
+                st.session_state.reg_subpage = "Event Creation"
 
-        st.subheader("Teams & Coaches Management")
-        if can_rw:
-            edited_teams = st.data_editor(teams_df, num_rows="dynamic", use_container_width=True, key="team_editor")
-            if st.button("💾 Save Teams Changes"):
-                try:
-                    sheet.worksheet("Teams").update([edited_teams.columns.values.tolist()] + edited_teams.fillna("").values.tolist())
-                    st.success("✅ Teams saved!")
-                except Exception as e:
-                    st.error(f"Save failed: {str(e)}")
+        if "reg_subpage" not in st.session_state:
+            st.session_state.reg_subpage = "Dashboard"
 
-        st.subheader("Assign Player to Team")
-        show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
+        subpage = st.session_state.reg_subpage
 
-        if show_unassigned:
-            available_players = players_df[players_df["Team"].isna() | (players_df["Team"] == "")]
-        else:
-            available_players = players_df
+        if subpage == "Dashboard":
+            selected_year = st.selectbox("Select Season Year", [2024, 2025, 2026, 2027], index=2)
 
-        player_list = (available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str)).tolist()
-        p_sel = st.selectbox("Select Player", player_list, key="assign_player") if player_list else None
+            st.subheader(f"Registered Players – {selected_year} Season")
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1: st.metric("Total Players", len(players_df))
+            with col2: st.metric("U10 Cruncher", len(players_df[players_df.get("AgeGroup", "") == "U10 Cruncher"]))
+            with col3: st.metric("U12 Atom", len(players_df[players_df.get("AgeGroup", "") == "U12 Atom"]))
+            with col4: st.metric("U14 PeeWee", len(players_df[players_df.get("AgeGroup", "") == "U14 PeeWee"]))
+            with col5: st.metric("U16 Bantam", len(players_df[players_df.get("AgeGroup", "") == "U16 Bantam"]))
 
-        if p_sel:
-            idx = available_players.index[available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str) == p_sel][0]
-            player_dob = players_df.at[idx, "Date of Birth"]
-            player_age_group = calculate_age_group(player_dob, selected_year)
+        elif subpage == "Team Assignments":
+            st.subheader("Assign Player to Team")
+            show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
 
-            matching_teams = teams_df[teams_df["Division"] == player_age_group]["TeamName"].tolist() if not teams_df.empty else ["No matching teams"]
+            if show_unassigned:
+                available_players = players_df[players_df["Team"].isna() | (players_df["Team"] == "")]
+            else:
+                available_players = players_df
 
-            t_sel = st.selectbox("Assign to Team (matching age group)", matching_teams, key="assign_team")
+            player_list = (available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str)).tolist()
+            p_sel = st.selectbox("Select Player", player_list, key="assign_player") if player_list else None
 
-            if st.button("Assign Player to Team", key="assign_btn") and p_sel and t_sel:
-                players_df.at[idx, "Team"] = t_sel
-                sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
-                st.success(f"✅ {p_sel} assigned to {t_sel}!")
+            if p_sel:
+                idx = available_players.index[available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str) == p_sel][0]
+                player_dob = players_df.at[idx, "Date of Birth"]
+                player_age_group = calculate_age_group(player_dob, datetime.date.today().year)
 
-        # Camp Session Creation with Start/End Date & Time
-        st.subheader("Create New Camp Session")
-        if can_rw:
-            col1, col2 = st.columns(2)
-            with col1:
-                c_name = st.text_input("Camp Name", key="camp_name")
-                c_start_date = st.date_input("Start Date", key="c_start_date")
-                c_start_time = st.time_input("Start Time", key="c_start_time", value=datetime.time(9, 0))
-            with col2:
-                c_end_date = st.date_input("End Date", key="c_end_date")
-                c_end_time = st.time_input("End Time", key="c_end_time", value=datetime.time(16, 0))
-                c_max = st.number_input("Max Players", min_value=1, value=40, key="camp_max")
-            c_location = st.text_input("Location", key="camp_location")
-            c_desc = st.text_area("Description", key="camp_desc")
+                matching_teams = teams_df[teams_df["Division"] == player_age_group]["TeamName"].tolist() if not teams_df.empty else ["No matching teams"]
 
-            if st.button("Create Camp Session", key="create_camp"):
-                new_camp = {
-                    "CampID": len(camps_df) + 1,
-                    "CampName": c_name,
-                    "Start Date": str(c_start_date),
-                    "End Date": str(c_end_date),
-                    "Start Time": str(c_start_time),
-                    "End Time": str(c_end_time),
-                    "Location": c_location,
-                    "Description": c_desc,
-                    "MaxPlayers": c_max
-                }
-                camps_df = pd.concat([camps_df, pd.DataFrame([new_camp])], ignore_index=True)
-                sheet.worksheet("Camps").update([camps_df.columns.values.tolist()] + camps_df.fillna("").values.tolist())
-                st.success(f"✅ Camp '{c_name}' created!")
+                t_sel = st.selectbox("Assign to Team (matching age group)", matching_teams, key="assign_team")
+
+                if st.button("Assign Player to Team", key="assign_btn") and p_sel and t_sel:
+                    players_df.at[idx, "Team"] = t_sel
+                    sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
+                    st.success(f"✅ {p_sel} assigned to {t_sel}!")
+
+        elif subpage == "Event Creation":
+            st.subheader("Create New Camp Session")
+            if can_rw:
+                col1, col2 = st.columns(2)
+                with col1:
+                    c_name = st.text_input("Camp Name", key="camp_name")
+                    c_start_date = st.date_input("Start Date", key="c_start_date")
+                    c_start_time = st.time_input("Start Time", key="c_start_time", value=datetime.time(9, 0))
+                with col2:
+                    c_end_date = st.date_input("End Date", key="c_end_date")
+                    c_end_time = st.time_input("End Time", key="c_end_time", value=datetime.time(16, 0))
+                    c_max = st.number_input("Max Players", min_value=1, value=40, key="camp_max")
+                c_location = st.text_input("Location", key="camp_location")
+                c_desc = st.text_area("Description", key="camp_desc")
+
+                if st.button("Create Camp Session", key="create_camp"):
+                    new_camp = {
+                        "CampID": len(camps_df) + 1,
+                        "CampName": c_name,
+                        "Start Date": str(c_start_date),
+                        "End Date": str(c_end_date),
+                        "Start Time": str(c_start_time),
+                        "End Time": str(c_end_time),
+                        "Location": c_location,
+                        "Description": c_desc,
+                        "MaxPlayers": c_max
+                    }
+                    camps_df = pd.concat([camps_df, pd.DataFrame([new_camp])], ignore_index=True)
+                    sheet.worksheet("Camps").update([camps_df.columns.values.tolist()] + camps_df.fillna("").values.tolist())
+                    st.success(f"✅ Camp '{c_name}' created!")
 
     elif page == "🔒 Restricted Health":
         if can_restricted:
@@ -272,116 +282,29 @@ if authentication_status is True:
 
     elif page == "🔧 Admin" and is_admin:
         st.header("🔧 Admin – User Management")
-
-        users_df = get_worksheet_data("Users").copy()
-
-        # Create New User with Checkbox Permissions
-        with st.expander("➕ Create New User"):
-            new_username = st.text_input("Username")
-            new_name = st.text_input("Full Name")
-            new_email = st.text_input("Email")
-            new_password = st.text_input("Password", type="password")
-
-            st.subheader("Permissions (checkboxes)")
-            perm_players = st.checkbox("Players", value=True)
-            perm_registrar = st.checkbox("Registrar", value=True)
-            perm_restricted = st.checkbox("Restricted Health", value=False)
-            perm_camps = st.checkbox("Camps", value=True)
-
-            perm_str = []
-            if perm_players: perm_str.append("Players:Write")
-            else: perm_str.append("Players:No")
-            if perm_registrar: perm_str.append("Registrar:Write")
-            else: perm_str.append("Registrar:No")
-            if perm_restricted: perm_str.append("Restricted Health:Write")
-            else: perm_str.append("Restricted Health:No")
-            if perm_camps: perm_str.append("Camps:Write")
-            else: perm_str.append("Camps:No")
-
-            if st.button("Create User"):
-                if new_username and new_name and new_email and new_password:
-                    hasher = stauth.Hasher()
-                    hashed = hasher.hash(new_password)
-                    new_row = {
-                        "username": new_username,
-                        "name": new_name,
-                        "email": new_email,
-                        "password": hashed,
-                        "roles": "ReadWrite",  # default
-                        "permissions": ",".join(perm_str)
-                    }
-                    users_df = pd.concat([users_df, pd.DataFrame([new_row])], ignore_index=True)
-                    sheet.worksheet("Users").update([users_df.columns.values.tolist()] + users_df.fillna("").values.tolist())
-                    st.success(f"User {new_username} created!")
-                else:
-                    st.error("Username, Name, Email and Password are required.")
-
-        # Edit Existing Users
-        st.subheader("Edit Existing Users")
-        # Hide passwords in display
-        display_df = users_df.copy()
-        if "password" in display_df.columns:
-            display_df["password"] = "••••••••"
-
-        edited_users = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, key="users_editor")
-
-        # Reset Password for selected row
-        if st.button("Reset Password for Selected User"):
-            if len(edited_users) > 0:
-                selected_idx = st.selectbox("Select user row to reset password", range(len(edited_users)), key="reset_idx")
-                new_pass = st.text_input("New Password for selected user", type="password", key="new_reset_pass")
-                if new_pass and st.button("Confirm Reset"):
-                    hasher = stauth.Hasher()
-                    hashed = hasher.hash(new_pass)
-                    row_num = selected_idx + 2
-                    sheet.worksheet("Users").update_cell(row_num, 4, hashed)  # Column D = password
-                    st.success("Password reset successfully!")
-                    st.rerun()
-
-        if st.button("💾 Save All User Changes"):
-            # Restore real passwords from original df (don't overwrite with ••••)
-            for i, row in edited_users.iterrows():
-                if i < len(users_df):
-                    users_df.at[i, "name"] = row["name"]
-                    users_df.at[i, "email"] = row["email"]
-                    # password stays from original
-                    users_df.at[i, "roles"] = row.get("roles", "")
-                    users_df.at[i, "permissions"] = row.get("permissions", "")
-            sheet.worksheet("Users").update([users_df.columns.values.tolist()] + users_df.fillna("").values.tolist())
-            st.success("✅ All user changes saved!")
+        st.info("Full permission editor coming soon.\n\nYou can edit the **Users** sheet directly for now.")
 
     elif page == "👤 Profile":
         st.header("👤 Profile")
         st.write(f"**Logged in as:** {name} ({username})")
-
-        st.subheader("Edit Profile")
-        with st.form("profile_form"):
-            new_name = st.text_input("Name", value=name)
-            new_email = st.text_input("Email", value=user_row.get("email", "") if user_row else "")
-            new_password = st.text_input("New Password (leave blank to keep current)", type="password")
+        st.subheader("Change Password")
+        with st.form("password_form"):
+            new_password = st.text_input("New Password", type="password")
             confirm_password = st.text_input("Confirm New Password", type="password")
-            submitted = st.form_submit_button("Save Changes")
-
+            submitted = st.form_submit_button("Change Password")
             if submitted:
-                updates = {}
-                if new_name and new_name != name:
-                    updates["name"] = new_name
-                if new_email:
-                    updates["email"] = new_email
-                if new_password and new_password == confirm_password:
-                    hasher = stauth.Hasher()
-                    hashed = hasher.hash(new_password)
-                    updates["password"] = hashed
-
-                if updates:
-                    row_num = [u.get("username") for u in user_records].index(username) + 2
-                    for col_name, value in updates.items():
-                        col_idx = list(user_records[0].keys()).index(col_name) + 1
-                        sheet.worksheet("Users").update_cell(row_num, col_idx, value)
-                    st.success("Profile updated successfully!")
-                    st.rerun()
+                if not new_password or new_password != confirm_password:
+                    st.error("New passwords do not match or are empty.")
                 else:
-                    st.info("No changes made.")
+                    try:
+                        hasher = stauth.Hasher()
+                        hashed = hasher.hash(new_password)
+                        row_num = [u.get("username") for u in user_records].index(username) + 2
+                        sheet.worksheet("Users").update_cell(row_num, 4, hashed)
+                        st.success("Password changed successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
 
     st.caption("✅ St. Vital Mustangs Registration Portal")
 
