@@ -9,7 +9,7 @@ import time
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
 
-# ====================== AUTHENTICATION (Strong Session Persistence) ======================
+# ====================== AUTHENTICATION ======================
 if "authenticator" not in st.session_state:
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -35,7 +35,7 @@ if "authenticator" not in st.session_state:
             credentials=credentials,
             cookie_name="stvital_mustangs_portal",
             key="super_secret_key_2026_mustangs",
-            cookie_expiry_days=30,   # Keeps login across refresh
+            cookie_expiry_days=30,
         )
         st.session_state.authenticator = authenticator
     except Exception as e:
@@ -95,11 +95,11 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # ====================== SIDEBAR - BUTTONS ABOVE NAV ======================
+    # ====================== SIDEBAR - ALL BUTTONS ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
 
-    # Profile, Admin, Logout ABOVE navigation
+    # Profile, Admin, Logout - ABOVE Navigation
     col1, col2 = st.sidebar.columns([1, 1])
     with col1:
         if st.button("👤 Profile", key="profile_btn", use_container_width=True):
@@ -114,24 +114,21 @@ if authentication_status is True:
 
     st.sidebar.markdown("---")
 
-    # Main Navigation
-    nav_options = ["📋 Players", "📋 Registrar"]
-    if can_restricted:
-        nav_options.append("🔒 Restricted Health")
-    nav_options.append("🏕️ Camps")
+    # Main Navigation - All as buttons (no radio)
+    if st.sidebar.button("📋 Players", key="nav_players", use_container_width=True):
+        st.session_state.page = "📋 Players"
+    if st.sidebar.button("📋 Registrar", key="nav_registrar", use_container_width=True):
+        st.session_state.page = "📋 Registrar"
+    if can_restricted and st.sidebar.button("🔒 Restricted Health", key="nav_restricted", use_container_width=True):
+        st.session_state.page = "🔒 Restricted Health"
+    if st.sidebar.button("🏕️ Camps", key="nav_camps", use_container_width=True):
+        st.session_state.page = "🏕️ Camps"
 
     # Default page if not set
-    if "page" not in st.session_state or st.session_state.page in ["👤 Profile", "🔧 Admin"]:
-        st.session_state.page = nav_options[0]
+    if "page" not in st.session_state:
+        st.session_state.page = "📋 Players"
 
-    # Radio navigation (only used when not on Profile/Admin)
-    selected_nav = st.sidebar.radio("Navigation", nav_options, key="sidebar_nav")
-
-    # Determine active page
-    if st.session_state.page in ["👤 Profile", "🔧 Admin"]:
-        page = st.session_state.page
-    else:
-        page = selected_nav
+    page = st.session_state.page
 
     # ====================== PAGES ======================
     if page == "📋 Players":
