@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v1.5"   # Events check-in checkbox next to player name
+VERSION = "v1.6"   # Events page fixes + upcoming events list
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -255,6 +255,26 @@ if authentication_status is True:
                                 st.rerun()
 
         elif subpage == "Event Creation":
+            st.subheader("📅 Upcoming & Ongoing Events")
+
+            today = datetime.date.today()
+            if not events_df.empty:
+                events_display = events_df.copy()
+                # Safe column names
+                name_col = next((c for c in ["EventName", "Name"] if c in events_display.columns), events_display.columns[1] if len(events_display.columns) > 1 else "EventName")
+                start_col = next((c for c in ["Start Date", "Start"] if c in events_display.columns), None)
+                end_col = next((c for c in ["End Date", "End"] if c in events_display.columns), None)
+
+                if start_col and end_col:
+                    events_display["Status"] = events_display.apply(
+                        lambda row: "Finished" if pd.notna(row[end_col]) and datetime.datetime.strptime(str(row[end_col]).split()[0], "%Y-%m-%d").date() < today
+                        else "Ongoing" if pd.notna(row[start_col]) and datetime.datetime.strptime(str(row[start_col]).split()[0], "%Y-%m-%d").date() <= today
+                        else "Upcoming", axis=1
+                    )
+                    events_display = events_display.sort_values(by="Status")
+
+                st.dataframe(events_display[[name_col, start_col, end_col, "Status"]] if start_col and end_col else events_display, use_container_width=True)
+
             st.subheader("Create New Event")
             if can_rw:
                 col1, col2 = st.columns(2)
@@ -284,6 +304,7 @@ if authentication_status is True:
                     events_df = pd.concat([events_df, pd.DataFrame([new_event])], ignore_index=True)
                     sheet.worksheet("Events").update([events_df.columns.values.tolist()] + events_df.fillna("").values.tolist())
                     st.success(f"✅ Event '{e_name}' created!")
+                    st.rerun()
 
     elif page == "🔒 Restricted Health":
         if can_restricted:
@@ -303,7 +324,7 @@ if authentication_status is True:
         st.header("🏕️ Events – Registered Participants & Check-In")
 
         # Safe EventName handling
-        event_name_col = next((col for col in ["EventName", "Event"] if col in events_df.columns), None)
+        event_name_col = next((col for col in ["EventName", "Name", "Event"] if col in events_df.columns), None)
 
         if not events_df.empty and event_name_col:
             event_list = events_df[event_name_col].dropna().unique().tolist()
@@ -311,26 +332,21 @@ if authentication_status is True:
                 selected_event = st.selectbox("Select Event", event_list, key="event_selector")
 
                 if selected_event:
-                    reg_event_col = next((col for col in ["EventName", "Event"] if col in events_reg_df.columns), None)
-                    if reg_event_col:
-                        filtered_reg = events_reg_df[events_reg_df[reg_event_col] == selected_event].copy()
-                    else:
-                        filtered_reg = events_reg_df.copy()
+                    reg_event_col = next((col for col in ["EventName", "Name", "Event"] if col in events_reg_df.columns), None)
+                    filtered_reg = events_reg_df[events_reg_df[reg_event_col] == selected_event].copy() if reg_event_col else events_reg_df.copy()
 
                     if not filtered_reg.empty:
                         st.subheader(f"Registrations for: {selected_event}")
 
-                        # Ensure CheckIn columns exist
                         if "CheckIn" not in filtered_reg.columns:
                             filtered_reg["CheckIn"] = False
                         if "CheckInTime" not in filtered_reg.columns:
                             filtered_reg["CheckInTime"] = ""
 
-                        # Reorder so Name is first, then CheckIn checkbox
-                        name_col = next((col for col in ["Full Name", "Name", "First Name", "Player Name"] if col in filtered_reg.columns), None)
-                        if name_col:
-                            cols = [name_col] + [c for c in filtered_reg.columns if c != name_col]
-                            filtered_reg = filtered_reg[cols]
+                        # Show player name prominently + checkbox right beside it
+                        name_col = next((col for col in ["First Name", "Last Name", "Name", "Player Name"] if col in filtered_reg.columns), None)
+                        if name_col and "First Name" in filtered_reg.columns and "Last Name" in filtered_reg.columns:
+                            filtered_reg["Player Name"] = filtered_reg["First Name"].astype(str) + " " + filtered_reg["Last Name"].astype(str)
 
                         edited_reg = st.data_editor(
                             filtered_reg,
