@@ -70,7 +70,6 @@ if authentication_status is True:
     camps_df = get_worksheet_data("Camps")
     camp_reg_df = get_worksheet_data("CampRegistrations")
 
-    # Dynamic Age Group
     def calculate_age_group(dob_str, season_year):
         try:
             dob = datetime.datetime.strptime(str(dob_str).strip(), "%Y-%m-%d").date()
@@ -96,12 +95,12 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # ====================== SIDEBAR ======================
+    # ====================== SIDEBAR - BUTTONS ABOVE NAVIGATION ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
 
-    # Profile, Admin, Logout ABOVE Navigation
-    col1, col2 = st.sidebar.columns(2)
+    # Profile, Admin, Logout - ABOVE Navigation
+    col1, col2 = st.sidebar.columns([1, 1])
     with col1:
         if st.button("👤 Profile", key="profile_btn", use_container_width=True):
             st.session_state.current_page = "👤 Profile"
@@ -121,15 +120,17 @@ if authentication_status is True:
         nav_options.append("🔒 Restricted Health")
     nav_options.append("🏕️ Camps")
 
+    # Default to navigation if not on Profile/Admin
     if "current_page" not in st.session_state or st.session_state.current_page in ["👤 Profile", "🔧 Admin"]:
         st.session_state.current_page = nav_options[0]
 
     selected_nav = st.sidebar.radio("Navigation", nav_options, key="sidebar_nav")
 
-    if st.session_state.current_page not in ["👤 Profile", "🔧 Admin"]:
-        page = selected_nav
-    else:
+    # Use button selection if Profile or Admin was clicked, otherwise use navigation
+    if st.session_state.current_page in ["👤 Profile", "🔧 Admin"]:
         page = st.session_state.current_page
+    else:
+        page = selected_nav
 
     # ====================== PAGES ======================
     if page == "📋 Players":
@@ -193,7 +194,7 @@ if authentication_status is True:
 
         if p_sel:
             idx = available_players.index[available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str) == p_sel][0]
-            player_dob = players_df.at[idx, "Date of Birth"]
+            player_dob = players_df.at[idx, "Date of Birth")
             player_age_group = calculate_age_group(player_dob, selected_year)
 
             matching_teams = teams_df[teams_df["Division"] == player_age_group]["TeamName"].tolist() if not teams_df.empty else ["No matching teams"]
@@ -205,7 +206,7 @@ if authentication_status is True:
                 sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
                 st.success(f"✅ {p_sel} assigned to {t_sel}!")
 
-        # Camp Session Creation - Updated with Start/End Date & Time
+        # Camp Session Creation with Start/End Date & Time
         st.subheader("Create New Camp Session")
         if can_rw:
             col1, col2 = st.columns(2)
