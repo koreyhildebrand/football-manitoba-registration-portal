@@ -42,7 +42,7 @@ if "authenticator" not in st.session_state:
         st.error(f"Setup error: {str(e)}")
         st.stop()
 
-# Critical: Clean any leftover 'logout' flag BEFORE calling login()
+# Critical fix: Remove any leftover 'logout' key BEFORE login is called
 if 'logout' in st.session_state:
     del st.session_state['logout']
 
