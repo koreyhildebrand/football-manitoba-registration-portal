@@ -9,7 +9,7 @@ import time
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
 
-# ====================== AUTHENTICATION ======================
+# ====================== AUTHENTICATION (Strong Refresh Persistence) ======================
 if "authenticator" not in st.session_state:
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -35,7 +35,7 @@ if "authenticator" not in st.session_state:
             credentials=credentials,
             cookie_name="stvital_mustangs_portal",
             key="super_secret_key_2026_mustangs",
-            cookie_expiry_days=30,
+            cookie_expiry_days=30,   # Keeps you logged in on refresh
         )
         st.session_state.authenticator = authenticator
     except Exception as e:
@@ -95,7 +95,7 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # ====================== SIDEBAR - ALL BUTTONS ======================
+    # ====================== SIDEBAR - BUTTONS ABOVE NAV ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
 
@@ -110,11 +110,14 @@ if authentication_status is True:
 
     if st.sidebar.button("🚪 Logout", key="logout_btn", type="secondary"):
         st.session_state.authenticator.logout('main')
+        for key in list(st.session_state.keys()):
+            if key != "authenticator":
+                del st.session_state[key]
         st.rerun()
 
     st.sidebar.markdown("---")
 
-    # Main Navigation - All as buttons (no radio)
+    # Main Navigation - All as buttons
     if st.sidebar.button("📋 Players", key="nav_players", use_container_width=True):
         st.session_state.page = "📋 Players"
     if st.sidebar.button("📋 Registrar", key="nav_registrar", use_container_width=True):
@@ -124,7 +127,7 @@ if authentication_status is True:
     if st.sidebar.button("🏕️ Camps", key="nav_camps", use_container_width=True):
         st.session_state.page = "🏕️ Camps"
 
-    # Default page if not set
+    # Default page
     if "page" not in st.session_state:
         st.session_state.page = "📋 Players"
 
