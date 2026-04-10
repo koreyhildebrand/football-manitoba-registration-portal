@@ -9,7 +9,7 @@ import time
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
 
-# ====================== AUTHENTICATION ======================
+# ====================== AUTHENTICATION (Safe Guard for Logout Key) ======================
 if "authenticator" not in st.session_state:
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -42,17 +42,11 @@ if "authenticator" not in st.session_state:
         st.error(f"Setup error: {str(e)}")
         st.stop()
 
-# Safe login call - protect against missing 'logout' key
-try:
-    st.session_state.authenticator.login(location='main')
-except KeyError as e:
-    if "logout" in str(e):
-        # Clean up leftover logout flag
-        if 'logout' in st.session_state:
-            del st.session_state['logout']
-        st.session_state.authenticator.login(location='main')
-    else:
-        raise
+# Safe login call - protect against missing 'logout' key from previous logout
+if 'logout' in st.session_state:
+    del st.session_state['logout']
+
+st.session_state.authenticator.login(location='main')
 
 authentication_status = st.session_state.get('authentication_status')
 name = st.session_state.get('name')
@@ -123,7 +117,7 @@ if authentication_status is True:
             st.session_state.authenticator.logout('main')
         except:
             pass
-        # Safe clear - only remove non-auth keys
+        # Safe clear - leave authenticator intact
         for key in list(st.session_state.keys()):
             if key not in ["authenticator", "sheet"]:
                 if key in st.session_state:
