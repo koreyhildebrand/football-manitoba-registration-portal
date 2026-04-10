@@ -42,8 +42,17 @@ if "authenticator" not in st.session_state:
         st.error(f"Setup error: {str(e)}")
         st.stop()
 
-# Safe login call
-st.session_state.authenticator.login(location='main')
+# Safe login call - protect against missing 'logout' key
+try:
+    st.session_state.authenticator.login(location='main')
+except KeyError as e:
+    if "logout" in str(e):
+        # Clean up leftover logout flag
+        if 'logout' in st.session_state:
+            del st.session_state['logout']
+        st.session_state.authenticator.login(location='main')
+    else:
+        raise
 
 authentication_status = st.session_state.get('authentication_status')
 name = st.session_state.get('name')
@@ -96,11 +105,11 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # ====================== SIDEBAR ======================
+    # ====================== SIDEBAR - BUTTONS ABOVE NAV ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
 
-    # Profile, Admin, Logout ABOVE Navigation
+    # Profile, Admin, Logout - ABOVE Navigation
     col1, col2 = st.sidebar.columns([1, 1])
     with col1:
         if st.button("👤 Profile", key="profile_btn", use_container_width=True):
@@ -114,15 +123,16 @@ if authentication_status is True:
             st.session_state.authenticator.logout('main')
         except:
             pass
-        # Safe clear
+        # Safe clear - only remove non-auth keys
         for key in list(st.session_state.keys()):
-            if key not in ["authenticator"]:
-                del st.session_state[key]
+            if key not in ["authenticator", "sheet"]:
+                if key in st.session_state:
+                    del st.session_state[key]
         st.rerun()
 
     st.sidebar.markdown("---")
 
-    # Main Navigation - All buttons
+    # Main Navigation - All as buttons
     if st.sidebar.button("📋 Players", key="nav_players", use_container_width=True):
         st.session_state.page = "📋 Players"
     if st.sidebar.button("📋 Registrar", key="nav_registrar", use_container_width=True):
