@@ -96,28 +96,36 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # ====================== SIDEBAR ======================
+    # ====================== SIDEBAR - NEW LAYOUT ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
 
-    # Main Navigation (only core tabs)
+    # Profile, Admin, Logout - ABOVE Navigation
+    if st.sidebar.button("👤 Profile", key="profile_btn"):
+        st.session_state.current_page = "👤 Profile"
+    if is_admin and st.sidebar.button("🔧 Admin", key="admin_btn"):
+        st.session_state.current_page = "🔧 Admin"
+    if st.sidebar.button("🚪 Logout", key="logout_btn"):
+        st.session_state.authenticator.logout('main')
+        st.rerun()
+
+    st.sidebar.markdown("---")
+
+    # Main Navigation
     nav_options = ["📋 Players", "📋 Registrar"]
     if can_restricted:
         nav_options.append("🔒 Restricted Health")
     nav_options.append("🏕️ Camps")
 
+    # Default to first nav if no page set
+    if "current_page" not in st.session_state or st.session_state.current_page not in ["👤 Profile", "🔧 Admin"]:
+        st.session_state.current_page = nav_options[0]
+
     page = st.sidebar.radio("Navigation", nav_options, key="sidebar_nav")
 
-    # Profile and Admin moved under user info
-    st.sidebar.markdown("---")
-    if st.sidebar.button("👤 Profile"):
-        page = "👤 Profile"
-    if is_admin and st.sidebar.button("🔧 Admin"):
-        page = "🔧 Admin"
-
-    if st.sidebar.button("🚪 Logout"):
-        st.session_state.authenticator.logout('main')
-        st.rerun()
+    # Override with button selections
+    if "current_page" in st.session_state:
+        page = st.session_state.current_page
 
     # ====================== PAGES ======================
     if page == "📋 Players":
