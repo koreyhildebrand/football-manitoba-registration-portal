@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v1.6"   # Events page fixes + upcoming events list
+VERSION = "v1.7"   # Safe date parsing for event status
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -260,20 +260,37 @@ if authentication_status is True:
             today = datetime.date.today()
             if not events_df.empty:
                 events_display = events_df.copy()
-                # Safe column names
-                name_col = next((c for c in ["EventName", "Name"] if c in events_display.columns), events_display.columns[1] if len(events_display.columns) > 1 else "EventName")
+
+                # Safe column detection
+                name_col = next((c for c in ["EventName", "Name"] if c in events_display.columns), None)
                 start_col = next((c for c in ["Start Date", "Start"] if c in events_display.columns), None)
                 end_col = next((c for c in ["End Date", "End"] if c in events_display.columns), None)
 
-                if start_col and end_col:
-                    events_display["Status"] = events_display.apply(
-                        lambda row: "Finished" if pd.notna(row[end_col]) and datetime.datetime.strptime(str(row[end_col]).split()[0], "%Y-%m-%d").date() < today
-                        else "Ongoing" if pd.notna(row[start_col]) and datetime.datetime.strptime(str(row[start_col]).split()[0], "%Y-%m-%d").date() <= today
-                        else "Upcoming", axis=1
-                    )
-                    events_display = events_display.sort_values(by="Status")
+                if name_col and start_col and end_col:
+                    def get_status(row):
+                        try:
+                            end_str = str(row[end_col]).strip()
+                            if end_str and end_str.lower() != "nan":
+                                end_date = datetime.datetime.strptime(end_str.split()[0], "%Y-%m-%d").date()
+                                if end_date < today:
+                                    return "Finished"
+                            start_str = str(row[start_col]).strip()
+                            if start_str and start_str.lower() != "nan":
+                                start_date = datetime.datetime.strptime(start_str.split()[0], "%Y-%m-%d").date()
+                                if start_date <= today:
+                                    return "Ongoing"
+                            return "Upcoming"
+                        except:
+                            return "Unknown"
 
-                st.dataframe(events_display[[name_col, start_col, end_col, "Status"]] if start_col and end_col else events_display, use_container_width=True)
+                    events_display["Status"] = events_display.apply(get_status, axis=1)
+                    # Reorder columns for nice display
+                    display_cols = [name_col, start_col, end_col, "Status"]
+                    st.dataframe(events_display[display_cols], use_container_width=True)
+                else:
+                    st.dataframe(events_display, use_container_width=True)
+            else:
+                st.info("No events created yet.")
 
             st.subheader("Create New Event")
             if can_rw:
@@ -323,7 +340,6 @@ if authentication_status is True:
     elif page == "🏕️ Events":
         st.header("🏕️ Events – Registered Participants & Check-In")
 
-        # Safe EventName handling
         event_name_col = next((col for col in ["EventName", "Name", "Event"] if col in events_df.columns), None)
 
         if not events_df.empty and event_name_col:
