@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v1.0"   # Increment this with each major redesign (e.g. v1.1, v2.0, etc.)
+VERSION = "v1.1"   # Updated for Team Assignments fix
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -101,9 +101,8 @@ if authentication_status is True:
     # ====================== SIDEBAR ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
-    st.sidebar.caption(f"**Version:** {VERSION}")   # Version displayed in top-left of sidebar
+    st.sidebar.caption(f"**Version:** {VERSION}")
 
-    # Profile, Admin, Logout - ABOVE Navigation
     col1, col2 = st.sidebar.columns([1, 1])
     with col1:
         if st.button("👤 Profile", key="profile_btn", use_container_width=True):
@@ -167,6 +166,10 @@ if authentication_status is True:
     elif page == "📋 Registrar":
         st.header("📋 Registrar")
 
+        # Season Year selector - now at the top for all subpages
+        selected_year = st.selectbox("Select Season Year", [2024, 2025, 2026, 2027], index=2, key="global_season_year")
+
+        # Sub-navigation buttons
         sub_col1, sub_col2, sub_col3 = st.columns(3)
         with sub_col1:
             if st.button("📊 Dashboard", key="reg_dashboard", use_container_width=True):
@@ -184,7 +187,6 @@ if authentication_status is True:
         subpage = st.session_state.reg_subpage
 
         if subpage == "Dashboard":
-            selected_year = st.selectbox("Select Season Year", [2024, 2025, 2026, 2027], index=2)
             st.subheader(f"Registered Players – {selected_year} Season")
             col1, col2, col3, col4, col5 = st.columns(5)
             with col1: st.metric("Total Players", len(players_df))
@@ -208,7 +210,7 @@ if authentication_status is True:
             if p_sel:
                 idx = available_players.index[available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str) == p_sel][0]
                 player_dob = players_df.at[idx, "Date of Birth"]
-                player_age_group = calculate_age_group(player_dob, selected_year)
+                player_age_group = calculate_age_group(player_dob, selected_year)   # Now safe - selected_year always exists
 
                 matching_teams = teams_df[teams_df["Division"] == player_age_group]["TeamName"].tolist() if not teams_df.empty else ["No matching teams"]
 
