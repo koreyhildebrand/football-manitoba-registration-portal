@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v1.1"   # Updated for Team Assignments fix
+VERSION = "v1.3"   # Events page - dropdown + per-event check-in
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -166,10 +166,8 @@ if authentication_status is True:
     elif page == "📋 Registrar":
         st.header("📋 Registrar")
 
-        # Season Year selector - now at the top for all subpages
         selected_year = st.selectbox("Select Season Year", [2024, 2025, 2026, 2027], index=2, key="global_season_year")
 
-        # Sub-navigation buttons
         sub_col1, sub_col2, sub_col3 = st.columns(3)
         with sub_col1:
             if st.button("📊 Dashboard", key="reg_dashboard", use_container_width=True):
@@ -196,7 +194,8 @@ if authentication_status is True:
             with col5: st.metric("U16 Bantam", len(players_df[players_df.get("AgeGroup", "") == "U16 Bantam"]))
 
         elif subpage == "Team Assignments":
-            st.subheader("Assign Player to Team")
+            st.subheader("👥 Team Assignments")
+
             show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
 
             if show_unassigned:
@@ -209,17 +208,51 @@ if authentication_status is True:
 
             if p_sel:
                 idx = available_players.index[available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str) == p_sel][0]
-                player_dob = players_df.at[idx, "Date of Birth"]
-                player_age_group = calculate_age_group(player_dob, selected_year)   # Now safe - selected_year always exists
+                player_row = players_df.iloc[idx]
 
-                matching_teams = teams_df[teams_df["Division"] == player_age_group]["TeamName"].tolist() if not teams_df.empty else ["No matching teams"]
+                st.subheader("Selected Player")
+                with st.container(border=True):
+                    colA, colB = st.columns([1, 2])
+                    with colA:
+                        st.write(f"**{player_row['First Name']} {player_row['Last Name']}**")
+                        st.write(f"**DOB:** {player_row.get('Date of Birth', 'N/A')}")
+                    with colB:
+                        player_age_group = calculate_age_group(player_row.get("Date of Birth"), selected_year)
+                        st.write(f"**Age Group:** {player_age_group}")
+                        st.write(f"**Weight:** {player_row.get('Weight', 'N/A')}")
+                        st.write(f"**Years Experience:** {player_row.get('Years Experience', 'N/A')}")
 
-                t_sel = st.selectbox("Assign to Team (matching age group)", matching_teams, key="assign_team")
+                st.subheader("Available Teams for this Age Group")
+                matching_teams = teams_df[teams_df["Division"] == player_age_group]["TeamName"].tolist() if not teams_df.empty else []
+                if matching_teams:
+                    st.write("**Matching Teams:**", ", ".join(matching_teams))
+                else:
+                    st.warning("No teams currently exist for this age group.")
 
-                if st.button("Assign Player to Team", key="assign_btn") and p_sel and t_sel:
-                    players_df.at[idx, "Team"] = t_sel
-                    sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
-                    st.success(f"✅ {p_sel} assigned to {t_sel}!")
+                t_sel = st.selectbox("Assign to Existing Team", matching_teams + ["— Create New Team —"], key="assign_team")
+
+                if t_sel and t_sel != "— Create New Team —":
+                    if st.button("Assign Player to Team", key="assign_btn"):
+                        players_df.at[idx, "Team"] = t_sel
+                        sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
+                        st.success(f"✅ {p_sel} assigned to {t_sel}!")
+
+                if t_sel == "— Create New Team —":
+                    st.subheader("Create New Team")
+                    with st.form("new_team_form"):
+                        new_team_name = st.text_input("New Team Name", value=f"{player_age_group} Team")
+                        new_coach = st.text_input("Coach Name (optional)")
+                        submitted = st.form_submit_button("Create Team & Assign Player")
+                        if submitted:
+                            if new_team_name:
+                                new_team_row = {"TeamName": new_team_name, "Division": player_age_group, "Coach": new_coach if new_coach else ""}
+                                teams_df = pd.concat([teams_df, pd.DataFrame([new_team_row])], ignore_index=True)
+                                sheet.worksheet("Teams").update([teams_df.columns.values.tolist()] + teams_df.fillna("").values.tolist())
+
+                                players_df.at[idx, "Team"] = new_team_name
+                                sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
+                                st.success(f"✅ New team '{new_team_name}' created and {p_sel} assigned!")
+                                st.rerun()
 
         elif subpage == "Event Creation":
             st.subheader("Create New Event")
@@ -268,22 +301,49 @@ if authentication_status is True:
 
     elif page == "🏕️ Events":
         st.header("🏕️ Events – Registered Participants & Check-In")
-        if not events_reg_df.empty:
-            edited_events_reg = st.data_editor(events_reg_df, num_rows="dynamic", use_container_width=True, key="events_reg_editor")
-            if st.button("💾 Save Check-In Changes"):
-                sheet.worksheet("EventsRegistration").update([edited_events_reg.columns.values.tolist()] + edited_events_reg.fillna("").values.tolist())
-                st.success("✅ Check-in data saved!")
-        else:
-            st.info("No event registrations yet.")
 
-        st.subheader("Drill Down to Attendee")
-        if not events_reg_df.empty:
-            attendee_list = (events_reg_df["First Name"].astype(str) + " " + events_reg_df["Last Name"].astype(str)).tolist()
-            selected_attendee = st.selectbox("Select Attendee", attendee_list, key="attendee_select")
-            if selected_attendee:
-                idx = attendee_list.index(selected_attendee)
-                attendee_data = events_reg_df.iloc[idx]
-                st.json(attendee_data.to_dict())
+        if not events_df.empty:
+            event_list = events_df["EventName"].dropna().unique().tolist()
+            selected_event = st.selectbox("Select Event", event_list, key="event_selector")
+
+            if selected_event:
+                # Filter registrations for the selected event
+                filtered_reg = events_reg_df[events_reg_df.get("EventName", "") == selected_event].copy()
+
+                if not filtered_reg.empty:
+                    st.subheader(f"Registrations for: {selected_event}")
+
+                    # Make Check-In column editable
+                    if "CheckIn" not in filtered_reg.columns:
+                        filtered_reg["CheckIn"] = False
+                    if "CheckInTime" not in filtered_reg.columns:
+                        filtered_reg["CheckInTime"] = ""
+
+                    edited_reg = st.data_editor(
+                        filtered_reg,
+                        num_rows="dynamic",
+                        use_container_width=True,
+                        column_config={
+                            "CheckIn": st.column_config.CheckboxColumn("Checked In", default=False),
+                            "CheckInTime": st.column_config.TextColumn("Check-In Time", disabled=True)
+                        },
+                        key="events_checkin_editor"
+                    )
+
+                    if st.button("💾 Save Check-In Changes", type="primary"):
+                        # Update check-in time automatically when checked in
+                        for i, row in edited_reg.iterrows():
+                            if row.get("CheckIn") is True and not row.get("CheckInTime"):
+                                edited_reg.at[i, "CheckInTime"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+                        sheet.worksheet("EventsRegistration").update(
+                            [edited_reg.columns.values.tolist()] + edited_reg.fillna("").values.tolist()
+                        )
+                        st.success("✅ Check-in data saved!")
+                else:
+                    st.info(f"No registrations yet for '{selected_event}'.")
+        else:
+            st.info("No events created yet. Go to Registrar → Event Creation to add events.")
 
     elif page == "🔧 Admin" and is_admin:
         st.header("🔧 Admin – User Management")
