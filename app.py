@@ -9,7 +9,7 @@ import time
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
 
-# ====================== AUTHENTICATION ======================
+# ====================== AUTHENTICATION (Robust Session Handling) ======================
 if "authenticator" not in st.session_state:
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -35,7 +35,7 @@ if "authenticator" not in st.session_state:
             credentials=credentials,
             cookie_name="stvital_mustangs_portal",
             key="super_secret_key_2026_mustangs",
-            cookie_expiry_days=30,
+            cookie_expiry_days=30,   # Keeps you logged in across refreshes
         )
         st.session_state.authenticator = authenticator
     except Exception as e:
@@ -120,12 +120,13 @@ if authentication_status is True:
         nav_options.append("🔒 Restricted Health")
     nav_options.append("🏕️ Camps")
 
+    # Default page
     if "current_page" not in st.session_state or st.session_state.current_page in ["👤 Profile", "🔧 Admin"]:
         st.session_state.current_page = nav_options[0]
 
     selected_nav = st.sidebar.radio("Navigation", nav_options, key="sidebar_nav")
 
-    # Determine current page
+    # Determine active page
     if st.session_state.current_page in ["👤 Profile", "🔧 Admin"]:
         page = st.session_state.current_page
     else:
