@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v2.4"   # Added Team Summary box on Team Assignments
+VERSION = "v2.5"   # Moved Team Roster Summary to Registrar Dashboard
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -63,7 +63,6 @@ if authentication_status is True:
             else:
                 data = ws.get_all_records()
             df = pd.DataFrame(data)
-            # Clean duplicate column names
             if not df.empty:
                 df.columns = pd.Index([f"{col}_{i}" if list(df.columns).count(col) > 1 else col 
                                      for i, col in enumerate(df.columns)])
@@ -201,14 +200,7 @@ if authentication_status is True:
             with col4: st.metric("U14", len(players_df[players_df.get("AgeGroup", "") == "U14"]))
             with col5: st.metric("U16", len(players_df[players_df.get("AgeGroup", "") == "U16"]))
 
-        elif subpage == "Team Assignments":
-            st.subheader("👥 Team Assignments")
-
-            if st.button("🔄 Refresh Teams & Players", type="primary"):
-                st.cache_data.clear()
-                st.rerun()
-
-            # === NEW: Team Summary Box ===
+            # === Team Roster Summary Box (moved here) ===
             st.subheader("Current Team Roster Summary")
             if not teams_df.empty and "TeamName" in teams_df.columns:
                 team_summary = players_df.groupby("Team")["First Name"].count().reset_index()
@@ -218,6 +210,13 @@ if authentication_status is True:
                 st.dataframe(team_summary[["TeamName", "Division", "Players Assigned"]], use_container_width=True, hide_index=True)
             else:
                 st.info("No teams created yet.")
+
+        elif subpage == "Team Assignments":
+            st.subheader("👥 Team Assignments")
+
+            if st.button("🔄 Refresh Teams & Players", type="primary"):
+                st.cache_data.clear()
+                st.rerun()
 
             show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
 
