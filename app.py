@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v2.1"   # Refresh button on Team Assignments + auto-clear coach field
+VERSION = "v2.2"   # Fixed Age Group / Division matching + refresh on Team Assignments
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -77,13 +77,13 @@ if authentication_status is True:
         try:
             dob = datetime.datetime.strptime(str(dob_str).strip(), "%Y-%m-%d").date()
             age = season_year - dob.year
-            if 9 <= age <= 10: return "U10 Cruncher"
-            elif 11 <= age <= 12: return "U12 Atom"
-            elif 13 <= age <= 14: return "U14 PeeWee"
-            elif 15 <= age <= 16: return "U16 Bantam"
-            return f"Outside {season_year} Eligibility"
+            if 9 <= age <= 10: return "U10"
+            elif 11 <= age <= 12: return "U12"
+            elif 13 <= age <= 14: return "U14"
+            elif 15 <= age <= 16: return "U16"
+            return f"Outside {season_year}"
         except:
-            return "Invalid DOB"
+            return "Invalid"
 
     if "Date of Birth" in players_df.columns:
         players_df["AgeGroup"] = players_df["Date of Birth"].apply(lambda x: calculate_age_group(x, datetime.date.today().year))
@@ -188,10 +188,10 @@ if authentication_status is True:
             st.subheader(f"Registered Players – {selected_year} Season")
             col1, col2, col3, col4, col5 = st.columns(5)
             with col1: st.metric("Total Players", len(players_df))
-            with col2: st.metric("U10 Cruncher", len(players_df[players_df.get("AgeGroup", "") == "U10 Cruncher"]))
-            with col3: st.metric("U12 Atom", len(players_df[players_df.get("AgeGroup", "") == "U12 Atom"]))
-            with col4: st.metric("U14 PeeWee", len(players_df[players_df.get("AgeGroup", "") == "U14 PeeWee"]))
-            with col5: st.metric("U16 Bantam", len(players_df[players_df.get("AgeGroup", "") == "U16 Bantam"]))
+            with col2: st.metric("U10", len(players_df[players_df.get("AgeGroup", "") == "U10"]))
+            with col3: st.metric("U12", len(players_df[players_df.get("AgeGroup", "") == "U12"]))
+            with col4: st.metric("U14", len(players_df[players_df.get("AgeGroup", "") == "U14"]))
+            with col5: st.metric("U16", len(players_df[players_df.get("AgeGroup", "") == "U16"]))
 
         elif subpage == "Team Assignments":
             st.subheader("👥 Team Assignments")
@@ -227,11 +227,12 @@ if authentication_status is True:
                         st.write(f"**Years Experience:** {player_row.get('Years Experience', 'N/A')}")
 
                 st.subheader("Available Teams for this Age Group")
-                matching_teams = teams_df[teams_df.get("Division", "") == player_age_group]["TeamName"].tolist() if not teams_df.empty else []
+                matching_teams = teams_df[teams_df.get("Division", "").str.strip() == player_age_group]["TeamName"].tolist() if not teams_df.empty else []
+
                 if matching_teams:
                     st.write("**Matching Teams:**", ", ".join(matching_teams))
                 else:
-                    st.warning("No teams currently exist for this age group.")
+                    st.warning(f"No teams currently exist for **{player_age_group}**. Create one below.")
 
                 t_sel = st.selectbox("Assign to Existing Team", matching_teams + ["— Create New Team —"], key="assign_team")
 
@@ -257,9 +258,10 @@ if authentication_status is True:
                                 sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
 
                                 st.success(f"✅ New team '{new_team_name}' created and {p_sel} assigned!")
-                                st.rerun()   # Refresh so new team appears immediately
+                                st.rerun()
 
         elif subpage == "Event Creation":
+            # (Event Creation code remains the same as previous version)
             st.subheader("📅 Upcoming & Ongoing Events")
 
             if st.button("🔄 Refresh Events List", type="primary"):
