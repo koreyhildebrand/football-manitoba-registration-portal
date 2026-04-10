@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v1.7"   # Safe date parsing for event status
+VERSION = "v1.8"   # Added Refresh button for Upcoming Events
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -257,11 +257,14 @@ if authentication_status is True:
         elif subpage == "Event Creation":
             st.subheader("📅 Upcoming & Ongoing Events")
 
+            if st.button("🔄 Refresh Events List", type="primary"):
+                st.cache_data.clear()   # Force refresh of cached data
+                st.rerun()
+
             today = datetime.date.today()
             if not events_df.empty:
                 events_display = events_df.copy()
 
-                # Safe column detection
                 name_col = next((c for c in ["EventName", "Name"] if c in events_display.columns), None)
                 start_col = next((c for c in ["Start Date", "Start"] if c in events_display.columns), None)
                 end_col = next((c for c in ["End Date", "End"] if c in events_display.columns), None)
@@ -284,7 +287,6 @@ if authentication_status is True:
                             return "Unknown"
 
                     events_display["Status"] = events_display.apply(get_status, axis=1)
-                    # Reorder columns for nice display
                     display_cols = [name_col, start_col, end_col, "Status"]
                     st.dataframe(events_display[display_cols], use_container_width=True)
                 else:
@@ -359,7 +361,6 @@ if authentication_status is True:
                         if "CheckInTime" not in filtered_reg.columns:
                             filtered_reg["CheckInTime"] = ""
 
-                        # Show player name prominently + checkbox right beside it
                         name_col = next((col for col in ["First Name", "Last Name", "Name", "Player Name"] if col in filtered_reg.columns), None)
                         if name_col and "First Name" in filtered_reg.columns and "Last Name" in filtered_reg.columns:
                             filtered_reg["Player Name"] = filtered_reg["First Name"].astype(str) + " " + filtered_reg["Last Name"].astype(str)
