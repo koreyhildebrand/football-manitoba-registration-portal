@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v1.4"   # Fixed Events page column safety
+VERSION = "v1.5"   # Events check-in checkbox next to player name
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -302,8 +302,8 @@ if authentication_status is True:
     elif page == "🏕️ Events":
         st.header("🏕️ Events – Registered Participants & Check-In")
 
-        # Safe column handling for EventName
-        event_name_col = "EventName" if "EventName" in events_df.columns else events_df.columns[1] if len(events_df.columns) > 1 else None
+        # Safe EventName handling
+        event_name_col = next((col for col in ["EventName", "Event"] if col in events_df.columns), None)
 
         if not events_df.empty and event_name_col:
             event_list = events_df[event_name_col].dropna().unique().tolist()
@@ -311,27 +311,33 @@ if authentication_status is True:
                 selected_event = st.selectbox("Select Event", event_list, key="event_selector")
 
                 if selected_event:
-                    # Filter registrations safely
-                    reg_event_col = "EventName" if "EventName" in events_reg_df.columns else None
+                    reg_event_col = next((col for col in ["EventName", "Event"] if col in events_reg_df.columns), None)
                     if reg_event_col:
                         filtered_reg = events_reg_df[events_reg_df[reg_event_col] == selected_event].copy()
                     else:
-                        filtered_reg = events_reg_df.copy()  # fallback
+                        filtered_reg = events_reg_df.copy()
 
                     if not filtered_reg.empty:
                         st.subheader(f"Registrations for: {selected_event}")
 
+                        # Ensure CheckIn columns exist
                         if "CheckIn" not in filtered_reg.columns:
                             filtered_reg["CheckIn"] = False
                         if "CheckInTime" not in filtered_reg.columns:
                             filtered_reg["CheckInTime"] = ""
+
+                        # Reorder so Name is first, then CheckIn checkbox
+                        name_col = next((col for col in ["Full Name", "Name", "First Name", "Player Name"] if col in filtered_reg.columns), None)
+                        if name_col:
+                            cols = [name_col] + [c for c in filtered_reg.columns if c != name_col]
+                            filtered_reg = filtered_reg[cols]
 
                         edited_reg = st.data_editor(
                             filtered_reg,
                             num_rows="dynamic",
                             use_container_width=True,
                             column_config={
-                                "CheckIn": st.column_config.CheckboxColumn("Checked In", default=False),
+                                "CheckIn": st.column_config.CheckboxColumn("Checked In", default=False, width="small"),
                                 "CheckInTime": st.column_config.TextColumn("Check-In Time", disabled=True)
                             },
                             key="events_checkin_editor"
@@ -351,7 +357,7 @@ if authentication_status is True:
             else:
                 st.info("No events have been created yet.")
         else:
-            st.warning("Events sheet is empty or missing 'EventName' column. Please create at least one event in Registrar → Event Creation.")
+            st.warning("No events found. Please create events in Registrar → Event Creation first.")
 
     elif page == "🔧 Admin" and is_admin:
         st.header("🔧 Admin – User Management")
