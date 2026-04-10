@@ -6,6 +6,9 @@ import datetime
 import streamlit_authenticator as stauth
 import time
 
+# ====================== VERSION CONTROL ======================
+VERSION = "v1.0"   # Increment this with each major redesign (e.g. v1.1, v2.0, etc.)
+
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
 
@@ -67,8 +70,8 @@ if authentication_status is True:
 
     players_df = get_worksheet_data("Players")
     teams_df = get_worksheet_data("Teams")
-    events_df = get_worksheet_data("Events")           # renamed from Camps
-    events_reg_df = get_worksheet_data("EventsRegistration")  # renamed from CampRegistrations
+    events_df = get_worksheet_data("Events")
+    events_reg_df = get_worksheet_data("EventsRegistration")
 
     def calculate_age_group(dob_str, season_year):
         try:
@@ -98,7 +101,9 @@ if authentication_status is True:
     # ====================== SIDEBAR ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
+    st.sidebar.caption(f"**Version:** {VERSION}")   # Version displayed in top-left of sidebar
 
+    # Profile, Admin, Logout - ABOVE Navigation
     col1, col2 = st.sidebar.columns([1, 1])
     with col1:
         if st.button("👤 Profile", key="profile_btn", use_container_width=True):
@@ -124,7 +129,7 @@ if authentication_status is True:
         st.session_state.page = "📋 Registrar"
     if can_restricted and st.sidebar.button("🔒 Restricted Health", key="nav_restricted", use_container_width=True):
         st.session_state.page = "🔒 Restricted Health"
-    if st.sidebar.button("🏕️ Events", key="nav_events", use_container_width=True):   # changed label
+    if st.sidebar.button("🏕️ Events", key="nav_events", use_container_width=True):
         st.session_state.page = "🏕️ Events"
 
     if "page" not in st.session_state:
@@ -304,7 +309,7 @@ if authentication_status is True:
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
 
-    st.caption("✅ St. Vital Mustangs Registration Portal")
+    st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
 else:
     if authentication_status is False:
