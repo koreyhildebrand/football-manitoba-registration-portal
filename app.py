@@ -9,7 +9,7 @@ import time
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
 
-# ====================== AUTHENTICATION (Robust Session Handling) ======================
+# ====================== AUTHENTICATION (Strong Session Persistence) ======================
 if "authenticator" not in st.session_state:
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -35,7 +35,7 @@ if "authenticator" not in st.session_state:
             credentials=credentials,
             cookie_name="stvital_mustangs_portal",
             key="super_secret_key_2026_mustangs",
-            cookie_expiry_days=30,   # Keeps you logged in across refreshes
+            cookie_expiry_days=30,   # Keeps login across refresh
         )
         st.session_state.authenticator = authenticator
     except Exception as e:
@@ -95,18 +95,18 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # ====================== SIDEBAR - PROFILE/ADMIN/LOGOUT ABOVE NAV ======================
+    # ====================== SIDEBAR - BUTTONS ABOVE NAV ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
 
-    # Buttons above navigation
+    # Profile, Admin, Logout ABOVE navigation
     col1, col2 = st.sidebar.columns([1, 1])
     with col1:
         if st.button("👤 Profile", key="profile_btn", use_container_width=True):
-            st.session_state.current_page = "👤 Profile"
+            st.session_state.page = "👤 Profile"
     with col2:
         if is_admin and st.button("🔧 Admin", key="admin_btn", use_container_width=True):
-            st.session_state.current_page = "🔧 Admin"
+            st.session_state.page = "🔧 Admin"
 
     if st.sidebar.button("🚪 Logout", key="logout_btn", type="secondary"):
         st.session_state.authenticator.logout('main')
@@ -120,15 +120,16 @@ if authentication_status is True:
         nav_options.append("🔒 Restricted Health")
     nav_options.append("🏕️ Camps")
 
-    # Default page
-    if "current_page" not in st.session_state or st.session_state.current_page in ["👤 Profile", "🔧 Admin"]:
-        st.session_state.current_page = nav_options[0]
+    # Default page if not set
+    if "page" not in st.session_state or st.session_state.page in ["👤 Profile", "🔧 Admin"]:
+        st.session_state.page = nav_options[0]
 
+    # Radio navigation (only used when not on Profile/Admin)
     selected_nav = st.sidebar.radio("Navigation", nav_options, key="sidebar_nav")
 
     # Determine active page
-    if st.session_state.current_page in ["👤 Profile", "🔧 Admin"]:
-        page = st.session_state.current_page
+    if st.session_state.page in ["👤 Profile", "🔧 Admin"]:
+        page = st.session_state.page
     else:
         page = selected_nav
 
