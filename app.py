@@ -9,7 +9,7 @@ import time
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
 
-# ====================== SAFE AUTHENTICATION SETUP ======================
+# ====================== AUTHENTICATION ======================
 if "authenticator" not in st.session_state:
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -41,10 +41,6 @@ if "authenticator" not in st.session_state:
     except Exception as e:
         st.error(f"Setup error: {str(e)}")
         st.stop()
-
-# Critical fix: Remove any leftover 'logout' key BEFORE login is called
-if 'logout' in st.session_state:
-    del st.session_state['logout']
 
 st.session_state.authenticator.login(location='main')
 
@@ -99,11 +95,10 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # ====================== SIDEBAR ======================
+    # ====================== SIDEBAR - PROFILE/ADMIN/LOGOUT ABOVE NAV ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
 
-    # Profile, Admin, Logout ABOVE Navigation
     col1, col2 = st.sidebar.columns([1, 1])
     with col1:
         if st.button("👤 Profile", key="profile_btn", use_container_width=True):
@@ -113,20 +108,12 @@ if authentication_status is True:
             st.session_state.page = "🔧 Admin"
 
     if st.sidebar.button("🚪 Logout", key="logout_btn", type="secondary"):
-        try:
-            st.session_state.authenticator.logout('main')
-        except:
-            pass
-        # Safe clear - leave authenticator and sheet
-        for key in list(st.session_state.keys()):
-            if key not in ["authenticator", "sheet"]:
-                if key in st.session_state:
-                    del st.session_state[key]
+        st.session_state.authenticator.logout('main')
         st.rerun()
 
     st.sidebar.markdown("---")
 
-    # Main Navigation - All as buttons
+    # Main Navigation
     if st.sidebar.button("📋 Players", key="nav_players", use_container_width=True):
         st.session_state.page = "📋 Players"
     if st.sidebar.button("📋 Registrar", key="nav_registrar", use_container_width=True):
@@ -136,7 +123,6 @@ if authentication_status is True:
     if st.sidebar.button("🏕️ Camps", key="nav_camps", use_container_width=True):
         st.session_state.page = "🏕️ Camps"
 
-    # Default page
     if "page" not in st.session_state:
         st.session_state.page = "📋 Players"
 
