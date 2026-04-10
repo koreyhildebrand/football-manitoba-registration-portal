@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v1.3"   # Events page - dropdown + per-event check-in
+VERSION = "v1.4"   # Fixed Events page column safety
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -223,7 +223,7 @@ if authentication_status is True:
                         st.write(f"**Years Experience:** {player_row.get('Years Experience', 'N/A')}")
 
                 st.subheader("Available Teams for this Age Group")
-                matching_teams = teams_df[teams_df["Division"] == player_age_group]["TeamName"].tolist() if not teams_df.empty else []
+                matching_teams = teams_df[teams_df.get("Division", "") == player_age_group]["TeamName"].tolist() if not teams_df.empty else []
                 if matching_teams:
                     st.write("**Matching Teams:**", ", ".join(matching_teams))
                 else:
@@ -302,48 +302,56 @@ if authentication_status is True:
     elif page == "🏕️ Events":
         st.header("🏕️ Events – Registered Participants & Check-In")
 
-        if not events_df.empty:
-            event_list = events_df["EventName"].dropna().unique().tolist()
-            selected_event = st.selectbox("Select Event", event_list, key="event_selector")
+        # Safe column handling for EventName
+        event_name_col = "EventName" if "EventName" in events_df.columns else events_df.columns[1] if len(events_df.columns) > 1 else None
 
-            if selected_event:
-                # Filter registrations for the selected event
-                filtered_reg = events_reg_df[events_reg_df.get("EventName", "") == selected_event].copy()
+        if not events_df.empty and event_name_col:
+            event_list = events_df[event_name_col].dropna().unique().tolist()
+            if event_list:
+                selected_event = st.selectbox("Select Event", event_list, key="event_selector")
 
-                if not filtered_reg.empty:
-                    st.subheader(f"Registrations for: {selected_event}")
+                if selected_event:
+                    # Filter registrations safely
+                    reg_event_col = "EventName" if "EventName" in events_reg_df.columns else None
+                    if reg_event_col:
+                        filtered_reg = events_reg_df[events_reg_df[reg_event_col] == selected_event].copy()
+                    else:
+                        filtered_reg = events_reg_df.copy()  # fallback
 
-                    # Make Check-In column editable
-                    if "CheckIn" not in filtered_reg.columns:
-                        filtered_reg["CheckIn"] = False
-                    if "CheckInTime" not in filtered_reg.columns:
-                        filtered_reg["CheckInTime"] = ""
+                    if not filtered_reg.empty:
+                        st.subheader(f"Registrations for: {selected_event}")
 
-                    edited_reg = st.data_editor(
-                        filtered_reg,
-                        num_rows="dynamic",
-                        use_container_width=True,
-                        column_config={
-                            "CheckIn": st.column_config.CheckboxColumn("Checked In", default=False),
-                            "CheckInTime": st.column_config.TextColumn("Check-In Time", disabled=True)
-                        },
-                        key="events_checkin_editor"
-                    )
+                        if "CheckIn" not in filtered_reg.columns:
+                            filtered_reg["CheckIn"] = False
+                        if "CheckInTime" not in filtered_reg.columns:
+                            filtered_reg["CheckInTime"] = ""
 
-                    if st.button("💾 Save Check-In Changes", type="primary"):
-                        # Update check-in time automatically when checked in
-                        for i, row in edited_reg.iterrows():
-                            if row.get("CheckIn") is True and not row.get("CheckInTime"):
-                                edited_reg.at[i, "CheckInTime"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-
-                        sheet.worksheet("EventsRegistration").update(
-                            [edited_reg.columns.values.tolist()] + edited_reg.fillna("").values.tolist()
+                        edited_reg = st.data_editor(
+                            filtered_reg,
+                            num_rows="dynamic",
+                            use_container_width=True,
+                            column_config={
+                                "CheckIn": st.column_config.CheckboxColumn("Checked In", default=False),
+                                "CheckInTime": st.column_config.TextColumn("Check-In Time", disabled=True)
+                            },
+                            key="events_checkin_editor"
                         )
-                        st.success("✅ Check-in data saved!")
-                else:
-                    st.info(f"No registrations yet for '{selected_event}'.")
+
+                        if st.button("💾 Save Check-In Changes", type="primary"):
+                            for i, row in edited_reg.iterrows():
+                                if row.get("CheckIn") is True and not row.get("CheckInTime"):
+                                    edited_reg.at[i, "CheckInTime"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+                            sheet.worksheet("EventsRegistration").update(
+                                [edited_reg.columns.values.tolist()] + edited_reg.fillna("").values.tolist()
+                            )
+                            st.success("✅ Check-in data saved!")
+                    else:
+                        st.info(f"No registrations yet for '{selected_event}'.")
+            else:
+                st.info("No events have been created yet.")
         else:
-            st.info("No events created yet. Go to Registrar → Event Creation to add events.")
+            st.warning("Events sheet is empty or missing 'EventName' column. Please create at least one event in Registrar → Event Creation.")
 
     elif page == "🔧 Admin" and is_admin:
         st.header("🔧 Admin – User Management")
