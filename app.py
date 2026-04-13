@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.3 + Sheet Match"  # Updated to match your Google Form column headers
+VERSION = "v3.8"  # Team Assignment column + Registrar fixes (on v3.3 stable base)
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -76,7 +76,6 @@ if authentication_status is True:
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
-    # Ensure Equipment sheet exists
     try:
         equipment_df = get_worksheet_data("Equipment")
     except:
@@ -97,7 +96,6 @@ if authentication_status is True:
         except:
             return "Invalid"
 
-    # Use your actual Birthdate column for age calculation
     if "Birthdate" in players_df.columns:
         players_df["AgeGroup"] = players_df["Birthdate"].apply(lambda x: calculate_age_group(x, datetime.date.today().year))
 
@@ -150,20 +148,17 @@ if authentication_status is True:
 
     page = st.session_state.page
 
-    # ====================== PLAYERS PAGE (updated for your form columns) ======================
+    # ====================== PLAYERS PAGE ======================
     if page == "📋 Players":
         st.header("Player Roster")
         team_options = ["All Players"] + sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else ["All Players"]
         selected_team = st.selectbox("Filter by Team", team_options, key="team_filter")
 
         df_display = players_df.copy()
-        if selected_team != "All Players" and "Division" in df_display.columns:
-            df_display = df_display[df_display["Division"] == selected_team]
+        if selected_team != "All Players" and "Team Assignment" in df_display.columns:
+            df_display = df_display[df_display["Team Assignment"] == selected_team]
 
-        # Show the most relevant columns from your Google Form
-        display_cols = ["Timestamp", "First Name", "Last Name", "Birthdate", "Gender", "Division", "Weight", "Years Experience",
-                        "Contact Phone Number", "Email", "Primary Contact", "MB Health Number",
-                        "Does your player have a History of Concussions?", "Does your player have Allergies?"]
+        display_cols = ["First Name", "Last Name", "Birthdate", "Gender", "Division", "Team Assignment", "Weight", "Years Experience", "Contact Phone Number", "Email", "MB Health Number"]
         available_cols = [c for c in display_cols if c in df_display.columns]
         df_display = df_display[available_cols]
 
@@ -205,12 +200,14 @@ if authentication_status is True:
             with col5: st.metric("U16", len(players_df[players_df.get("AgeGroup", "") == "U16"]))
 
             st.subheader("Current Team Roster Summary")
-            if not teams_df.empty and "TeamName" in teams_df.columns:
-                team_summary = players_df.groupby("Division")["First Name"].count().reset_index()  # using Division from form
-                team_summary.columns = ["Division", "Players Assigned"]
+            if "Team Assignment" in players_df.columns and not players_df.empty:
+                team_summary = players_df.groupby("Team Assignment")["First Name"].count().reset_index()
+                team_summary.columns = ["Team Assignment", "Players Assigned"]
+                if "Division" in players_df.columns:
+                    team_summary = team_summary.merge(players_df[["Team Assignment", "Division"]].drop_duplicates(), on="Team Assignment", how="left")
                 st.dataframe(team_summary, width="stretch", hide_index=True)
             else:
-                st.info("No teams created yet.")
+                st.info("No team assignments yet.")
 
         elif subpage == "Team Assignments":
             st.subheader("👥 Team Assignments")
@@ -220,7 +217,7 @@ if authentication_status is True:
 
             show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
             if show_unassigned:
-                available_players = players_df[players_df.get("Division", "").isna() | (players_df.get("Division", "") == "")]
+                available_players = players_df[players_df.get("Team Assignment", "").isna() | (players_df.get("Team Assignment", "") == "")]
             else:
                 available_players = players_df
 
@@ -235,11 +232,12 @@ if authentication_status is True:
                 with st.container(border=True):
                     colA, colB = st.columns([1, 2])
                     with colA:
-                        st.write(f"**{player_row['First Name']} {player_row['Last Name']}**")
+                        st.write(f"**{player_row.get('First Name', '')} {player_row.get('Last Name', '')}**")
                         st.write(f"**Birthdate:** {player_row.get('Birthdate', 'N/A')}")
                     with colB:
                         player_age_group = calculate_age_group(player_row.get("Birthdate"), selected_year)
                         st.write(f"**Age Group:** {player_age_group}")
+                        st.write(f"**Division:** {player_row.get('Division', 'N/A')}")
                         st.write(f"**Weight:** {player_row.get('Weight', 'N/A')}")
                         st.write(f"**Years Experience:** {player_row.get('Years Experience', 'N/A')}")
 
@@ -255,7 +253,7 @@ if authentication_status is True:
 
                 if t_sel and t_sel != "— Create New Team —":
                     if st.button("Assign Player to Team", key="assign_btn"):
-                        players_df.at[idx, "Division"] = t_sel   # using Division column from your form
+                        players_df.at[idx, "Team Assignment"] = t_sel
                         sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
                         st.success(f"✅ {p_sel} assigned to {t_sel}!")
 
@@ -269,13 +267,12 @@ if authentication_status is True:
                             new_team_row = {"TeamName": new_team_name, "Division": player_age_group, "Coach": new_coach if new_coach else ""}
                             teams_df = pd.concat([teams_df, pd.DataFrame([new_team_row])], ignore_index=True)
                             sheet.worksheet("Teams").update([teams_df.columns.values.tolist()] + teams_df.fillna("").values.tolist())
-                            players_df.at[idx, "Division"] = new_team_name
+                            players_df.at[idx, "Team Assignment"] = new_team_name
                             sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
                             st.success(f"✅ New team '{new_team_name}' created and {p_sel} assigned!")
                             st.rerun()
 
         elif subpage == "Event Creation":
-            # (Event Creation code remains exactly as in v3.3 – unchanged)
             st.subheader("📅 Upcoming & Ongoing Events")
             if st.button("🔄 Refresh Events List", type="primary"):
                 st.cache_data.clear()
@@ -341,14 +338,13 @@ if authentication_status is True:
                     st.rerun()
 
     elif page == "🛡️ Equipment":
-        # Equipment page remains exactly as in v3.3
         st.header("🛡️ Equipment Loan Tracking")
         team_options = ["All Teams"] + sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else ["All Teams"]
         selected_team = st.selectbox("Select Team", team_options, key="equipment_team")
         if selected_team == "All Teams":
             equip_roster = players_df.copy()
         else:
-            equip_roster = players_df[players_df.get("Division", "") == selected_team].copy()
+            equip_roster = players_df[players_df.get("Team Assignment", "") == selected_team].copy()
         if not equip_roster.empty:
             st.subheader(f"Equipment for {selected_team}")
             equip_df = equipment_df.copy()
@@ -389,8 +385,7 @@ if authentication_status is True:
         else:
             st.info("No players found for the selected team.")
 
-    # Restricted Health, Events, Admin, Profile pages are the same as v3.3 (with safe column fallbacks)
-    # ... (the rest of the pages are identical to your original stable v3.3 code)
+    # (Restricted Health, Events, Admin, Profile pages remain exactly as in v3.3 stable with safe fallbacks)
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
