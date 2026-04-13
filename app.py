@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v2.6"   # Medical Alert Notifications + all pending layout changes
+VERSION = "v2.7"   # Fixed Medical Alert display on Restricted Health (no raw HTML)
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -200,7 +200,6 @@ if authentication_status is True:
             with col4: st.metric("U14", len(players_df[players_df.get("AgeGroup", "") == "U14"]))
             with col5: st.metric("U16", len(players_df[players_df.get("AgeGroup", "") == "U16"]))
 
-            # Team Roster Summary
             st.subheader("Current Team Roster Summary")
             if not teams_df.empty and "TeamName" in teams_df.columns:
                 team_summary = players_df.groupby("Team")["First Name"].count().reset_index()
@@ -353,7 +352,6 @@ if authentication_status is True:
         if can_restricted:
             st.header("🔒 Restricted Health Data")
 
-            # Team selector first
             team_options = ["All Teams"] + sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else ["All Teams"]
             selected_team = st.selectbox("Select Team to View", team_options, key="restricted_team")
 
@@ -365,23 +363,19 @@ if authentication_status is True:
             if not roster.empty:
                 st.subheader(f"Roster for {selected_team}")
 
-                # Add medical alert flag
-                def has_medical_alert(row):
-                    alerts = []
-                    if row.get("History of Concussion") == "Yes": alerts.append("Concussion")
-                    if str(row.get("Allergies", "")).strip() not in ["", "nan", "None"]: alerts.append("Allergies")
-                    if row.get("Epilepsy") == "Yes": alerts.append("Epilepsy")
-                    if row.get("Heart Condition") == "Yes": alerts.append("Heart Condition")
-                    if row.get("Diabetic") == "Yes": alerts.append("Diabetic")
-                    return " | ".join(alerts) if alerts else ""
-
-                roster["Medical Alert"] = roster.apply(has_medical_alert, axis=1)
-
-                # Display clickable roster
                 for idx, player in roster.iterrows():
-                    alert = player["Medical Alert"]
-                    alert_html = f"<span style='color:red;font-weight:bold;'>⚠️ {alert}</span>" if alert else ""
-                    with st.expander(f"{player['First Name']} {player['Last Name']} {alert_html}", expanded=False):
+                    alerts = []
+                    if player.get("History of Concussion") == "Yes": alerts.append("Concussion")
+                    if str(player.get("Allergies", "")).strip() not in ["", "nan", "None", "N/A"]: alerts.append("Allergies")
+                    if player.get("Epilepsy") == "Yes": alerts.append("Epilepsy")
+                    if player.get("Heart Condition") == "Yes": alerts.append("Heart Condition")
+                    if player.get("Diabetic") == "Yes": alerts.append("Diabetic")
+
+                    alert_text = " | ".join(alerts) if alerts else ""
+
+                    with st.expander(f"{player['First Name']} {player['Last Name']} {'⚠️ ' + alert_text if alert_text else ''}"):
+                        if alert_text:
+                            st.error(f"**MEDICAL ALERT:** {alert_text}")
                         st.write(f"**DOB:** {player.get('Date of Birth', 'N/A')}")
                         st.write(f"**Health Number:** {player.get('Health Number', 'N/A')}")
                         st.write(f"**History of Concussion:** {player.get('History of Concussion', 'No')}")
