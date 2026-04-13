@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.3"   # Stable base - Equipment as own sidebar button
+VERSION = "v3.3"   # Equipment as its own standalone sidebar button (not sub-page under Registrar)
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -45,19 +45,13 @@ if "authenticator" not in st.session_state:
         st.error(f"Setup error: {str(e)}")
         st.stop()
 
-name, authentication_status, username = st.session_state.authenticator.login(location='main')
+st.session_state.authenticator.login(location='main')
+
+authentication_status = st.session_state.get('authentication_status')
+name = st.session_state.get('name')
+username = st.session_state.get('username')
 
 if authentication_status is True:
-    # Record successful login
-    try:
-        log_ws = st.session_state.sheet.worksheet("LoginLog")
-    except gspread.exceptions.WorksheetNotFound:
-        log_ws = st.session_state.sheet.add_worksheet(title="LoginLog", rows=1000, cols=5)
-        log_ws.update([["Timestamp", "Username", "Name", "Success"]])
-
-    log_entry = [[datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), username, name, "True"]]
-    log_ws.append_rows(log_entry)
-
     sheet = st.session_state.sheet
 
     @st.cache_data(ttl=300)
@@ -581,15 +575,8 @@ if authentication_status is True:
                     sheet.worksheet("Users").update_cell(row_num, 6, ",".join(perm_str))
                     st.success("User updated successfully!")
                     st.rerun()
-
-        # ==================== SIGN-IN LOG ====================
-        st.subheader("📜 Sign-in Log")
-        if st.button("Show Sign-in Log", type="primary"):
-            log_df = get_worksheet_data("LoginLog")
-            if not log_df.empty:
-                st.dataframe(log_df.sort_values(by="Timestamp", ascending=False), width="stretch", hide_index=True)
-            else:
-                st.info("No login records yet.")
+        else:
+            st.info("No users found.")
 
     elif page == "👤 Profile":
         st.header("👤 Profile")
