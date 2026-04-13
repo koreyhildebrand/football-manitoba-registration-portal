@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.3"   # Equipment as its own standalone sidebar button (not sub-page under Registrar)
+VERSION = "v3.4"   # Restored Sign-in Log button on Admin page
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -88,6 +88,15 @@ if authentication_status is True:
         equipment_headers = ["PlayerID", "First Name", "Last Name", "Helmet", "Shoulder Pads", "Pants", "Belt", "Pant Pads", "Secured Rental", "Payment Method"]
         sheet.worksheet("Equipment").update([equipment_headers])
         equipment_df = pd.DataFrame(columns=equipment_headers)
+
+    # Ensure LoginLog sheet exists
+    try:
+        loginlog_df = get_worksheet_data("LoginLog")
+    except:
+        sheet.add_worksheet(title="LoginLog", rows=1000, cols=5)
+        log_headers = ["Timestamp", "Username", "Name", "Success"]
+        sheet.worksheet("LoginLog").update([log_headers])
+        loginlog_df = pd.DataFrame(columns=log_headers)
 
     def calculate_age_group(dob_str, season_year):
         try:
@@ -575,6 +584,16 @@ if authentication_status is True:
                     sheet.worksheet("Users").update_cell(row_num, 6, ",".join(perm_str))
                     st.success("User updated successfully!")
                     st.rerun()
+
+        # ==================== SIGN-IN LOG ====================
+        st.subheader("📜 Sign-in Log")
+        if st.button("Show Sign-in Log", type="primary"):
+            log_df = get_worksheet_data("LoginLog")
+            if not log_df.empty:
+                st.dataframe(log_df.sort_values(by="Timestamp", ascending=False), width="stretch", hide_index=True)
+            else:
+                st.info("No login records yet.")
+
         else:
             st.info("No users found.")
 
