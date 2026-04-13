@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.8"  # Team Assignment column + Registrar fixes (on v3.3 stable base)
+VERSION = "v3.9"  # Removed Age Group display + Team Assignment now based on Division column
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -84,22 +84,7 @@ if authentication_status is True:
         sheet.worksheet("Equipment").update([equipment_headers])
         equipment_df = pd.DataFrame(columns=equipment_headers)
 
-    def calculate_age_group(dob_str, season_year):
-        try:
-            dob = datetime.datetime.strptime(str(dob_str).strip().split()[0], "%Y-%m-%d").date()
-            age = season_year - dob.year
-            if 9 <= age <= 10: return "U10"
-            elif 11 <= age <= 12: return "U12"
-            elif 13 <= age <= 14: return "U14"
-            elif 15 <= age <= 16: return "U16"
-            return f"Outside {season_year}"
-        except:
-            return "Invalid"
-
-    if "Birthdate" in players_df.columns:
-        players_df["AgeGroup"] = players_df["Birthdate"].apply(lambda x: calculate_age_group(x, datetime.date.today().year))
-
-    # User roles
+    # ====================== SIDEBAR ======================
     user_records = get_worksheet_data("Users").to_dict("records")
     user_row = next((u for u in user_records if u.get("username") == username), None)
     roles_str = user_row.get("roles", "") if user_row else ""
@@ -109,7 +94,6 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # ====================== SIDEBAR ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
     st.sidebar.caption(f"**Version:** {VERSION}")
@@ -235,19 +219,18 @@ if authentication_status is True:
                         st.write(f"**{player_row.get('First Name', '')} {player_row.get('Last Name', '')}**")
                         st.write(f"**Birthdate:** {player_row.get('Birthdate', 'N/A')}")
                     with colB:
-                        player_age_group = calculate_age_group(player_row.get("Birthdate"), selected_year)
-                        st.write(f"**Age Group:** {player_age_group}")
                         st.write(f"**Division:** {player_row.get('Division', 'N/A')}")
                         st.write(f"**Weight:** {player_row.get('Weight', 'N/A')}")
                         st.write(f"**Years Experience:** {player_row.get('Years Experience', 'N/A')}")
 
-                st.subheader("Available Teams for this Age Group")
-                matching_teams = teams_df[teams_df.get("Division", "").str.strip() == player_age_group]["TeamName"].tolist() if not teams_df.empty else []
+                st.subheader("Available Teams for this Division")
+                player_div = str(player_row.get("Division", "")).strip()
+                matching_teams = teams_df[teams_df.get("Division", "").str.strip() == player_div]["TeamName"].tolist() if not teams_df.empty else []
 
                 if matching_teams:
                     st.write("**Matching Teams:**", ", ".join(matching_teams))
                 else:
-                    st.warning(f"No teams currently exist for **{player_age_group}**. Create one below.")
+                    st.warning(f"No teams currently exist for Division **{player_div}**. Create one below.")
 
                 t_sel = st.selectbox("Assign to Existing Team", matching_teams + ["— Create New Team —"], key="assign_team")
 
@@ -260,11 +243,11 @@ if authentication_status is True:
                 if t_sel == "— Create New Team —":
                     st.subheader("Create New Team")
                     with st.form("new_team_form", clear_on_submit=True):
-                        new_team_name = st.text_input("New Team Name", value=f"{player_age_group} Team")
+                        new_team_name = st.text_input("New Team Name", value=f"{player_div} Team")
                         new_coach = st.text_input("Coach Name (optional)")
                         submitted = st.form_submit_button("Create Team & Assign Player")
                         if submitted and new_team_name:
-                            new_team_row = {"TeamName": new_team_name, "Division": player_age_group, "Coach": new_coach if new_coach else ""}
+                            new_team_row = {"TeamName": new_team_name, "Division": player_div, "Coach": new_coach if new_coach else ""}
                             teams_df = pd.concat([teams_df, pd.DataFrame([new_team_row])], ignore_index=True)
                             sheet.worksheet("Teams").update([teams_df.columns.values.tolist()] + teams_df.fillna("").values.tolist())
                             players_df.at[idx, "Team Assignment"] = new_team_name
@@ -385,7 +368,7 @@ if authentication_status is True:
         else:
             st.info("No players found for the selected team.")
 
-    # (Restricted Health, Events, Admin, Profile pages remain exactly as in v3.3 stable with safe fallbacks)
+    # Restricted Health, Events, Admin, Profile pages remain as in v3.3 (safe fallbacks)
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
