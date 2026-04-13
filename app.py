@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.9"  # Removed Age Group display + Team Assignment now based on Division column
+VERSION = "v3.10"  # Fixed KeyError on AgeGroup - now uses Division column everywhere
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -178,10 +178,11 @@ if authentication_status is True:
             st.subheader(f"Registered Players – {selected_year} Season")
             col1, col2, col3, col4, col5 = st.columns(5)
             with col1: st.metric("Total Players", len(players_df))
-            with col2: st.metric("U10", len(players_df[players_df.get("AgeGroup", "") == "U10"]))
-            with col3: st.metric("U12", len(players_df[players_df.get("AgeGroup", "") == "U12"]))
-            with col4: st.metric("U14", len(players_df[players_df.get("AgeGroup", "") == "U14"]))
-            with col5: st.metric("U16", len(players_df[players_df.get("AgeGroup", "") == "U16"]))
+            # Safe metrics using Division column from your form
+            with col2: st.metric("U10", len(players_df[players_df.get("Division", "") == "U10"]))
+            with col3: st.metric("U12", len(players_df[players_df.get("Division", "") == "U12"]))
+            with col4: st.metric("U14", len(players_df[players_df.get("Division", "") == "U14"]))
+            with col5: st.metric("U16", len(players_df[players_df.get("Division", "") == "U16"]))
 
             st.subheader("Current Team Roster Summary")
             if "Team Assignment" in players_df.columns and not players_df.empty:
@@ -368,7 +369,7 @@ if authentication_status is True:
         else:
             st.info("No players found for the selected team.")
 
-    # Restricted Health, Events, Admin, Profile pages remain as in v3.3 (safe fallbacks)
+    # (Restricted Health, Events, Admin, Profile pages remain unchanged from v3.3)
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
