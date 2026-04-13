@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.10"   # Fixed "cannot unpack non-iterable NoneType object" on login
+VERSION = "v3.11"   # Fixed "after login nothing is loading" - clean separation
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -15,7 +15,6 @@ st.title("🏈 St. Vital Mustangs Registration Portal")
 # ====================== SAFE AUTHENTICATION ======================
 if "authenticator" not in st.session_state:
     try:
-        # Clear stale state
         for key in ["authentication_status", "name", "username"]:
             if key in st.session_state:
                 del st.session_state[key]
@@ -51,16 +50,15 @@ if "authenticator" not in st.session_state:
         st.error(f"Setup error: {str(e)}")
         st.stop()
 
-# Safe login with None check
-login_result = st.session_state.authenticator.login(location='main')
-
-if login_result is None:
-    # This can happen on first load or cookie issues - just show the login form again
-    st.stop()
-
-name, authentication_status, username = login_result
+# Perform login only once
+name, authentication_status, username = st.session_state.authenticator.login(location='main')
 
 if authentication_status is True:
+    # Force clean rerun after successful login to ensure UI loads
+    if "just_logged_in" not in st.session_state:
+        st.session_state.just_logged_in = True
+        st.rerun()
+
     # ====================== RECORD SUCCESSFUL LOGIN ======================
     try:
         log_ws = st.session_state.sheet.worksheet("LoginLog")
