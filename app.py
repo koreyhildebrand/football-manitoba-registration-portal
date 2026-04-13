@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.13"  # Restricted Health restored with your new Google Form columns
+VERSION = "v3.14"  # Added U18 and Major divisions to dashboard and team matching
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -176,12 +176,14 @@ if authentication_status is True:
 
         if subpage == "Dashboard":
             st.subheader(f"Registered Players – {selected_year} Season")
-            col1, col2, col3, col4, col5 = st.columns(5)
+            col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
             with col1: st.metric("Total Players", len(players_df))
             with col2: st.metric("U10", len(players_df[players_df.get("Division", "") == "U10"]))
             with col3: st.metric("U12", len(players_df[players_df.get("Division", "") == "U12"]))
             with col4: st.metric("U14", len(players_df[players_df.get("Division", "") == "U14"]))
             with col5: st.metric("U16", len(players_df[players_df.get("Division", "") == "U16"]))
+            with col6: st.metric("U18", len(players_df[players_df.get("Division", "") == "U18"]))
+            with col7: st.metric("Major", len(players_df[players_df.get("Division", "") == "Major"]))
 
             st.subheader("Current Team Roster Summary")
             if "Team Assignment" in players_df.columns and not players_df.empty:
