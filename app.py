@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v2.10"   # Cleaned up deprecated use_container_width warnings
+VERSION = "v3.0"   # Added Name + Email editing on Profile and Admin tabs
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -462,7 +462,11 @@ if authentication_status is True:
                 user_idx = users_df[users_df["username"] == selected_user].index[0]
                 user_data = users_df.iloc[user_idx]
 
-                st.subheader(f"Editing: {user_data['name']} ({selected_user})")
+                st.subheader(f"Editing: {user_data.get('name', selected_user)} ({selected_user})")
+
+                # Edit Name and Email
+                new_name = st.text_input("Name", value=user_data.get("name", ""))
+                new_email = st.text_input("Email", value=user_data.get("email", ""))
 
                 # Change Password
                 with st.form("admin_password_form"):
@@ -490,7 +494,7 @@ if authentication_status is True:
                 perm_restricted = st.checkbox("Restricted Health", value="Restricted Health:Write" in user_data.get("permissions", ""))
                 perm_events = st.checkbox("Events", value="Events:Write" in user_data.get("permissions", ""))
 
-                if st.button("Save User Changes"):
+                if st.button("Save All Changes"):
                     perm_str = []
                     if perm_players: perm_str.append("Players:Write")
                     else: perm_str.append("Players:No")
@@ -502,9 +506,11 @@ if authentication_status is True:
                     else: perm_str.append("Events:No")
 
                     row_num = user_idx + 2
+                    sheet.worksheet("Users").update_cell(row_num, 2, new_name)      # name column
+                    sheet.worksheet("Users").update_cell(row_num, 3, new_email)     # email column
                     sheet.worksheet("Users").update_cell(row_num, 5, ",".join(new_roles))
                     sheet.worksheet("Users").update_cell(row_num, 6, ",".join(perm_str))
-                    st.success("User permissions updated!")
+                    st.success("User updated successfully!")
                     st.rerun()
         else:
             st.info("No users found.")
@@ -512,24 +518,36 @@ if authentication_status is True:
     elif page == "👤 Profile":
         st.header("👤 Profile")
         st.write(f"**Logged in as:** {name} ({username})")
-        st.subheader("Change Password")
-        with st.form("password_form"):
-            new_password = st.text_input("New Password", type="password")
+
+        st.subheader("Edit Profile Information")
+        with st.form("profile_form"):
+            new_name = st.text_input("Name", value=name)
+            new_email = st.text_input("Email", value=user_row.get("email", "") if user_row else "")
+            new_password = st.text_input("New Password (leave blank to keep current)", type="password")
             confirm_password = st.text_input("Confirm New Password", type="password")
-            submitted = st.form_submit_button("Change Password")
+            submitted = st.form_submit_button("Save Changes")
+
             if submitted:
-                if not new_password or new_password != confirm_password:
-                    st.error("New passwords do not match or are empty.")
+                updates = {}
+                if new_name and new_name != name:
+                    updates["name"] = new_name
+                if new_email:
+                    updates["email"] = new_email
+                if new_password and new_password == confirm_password:
+                    hasher = stauth.Hasher()
+                    hashed = hasher.hash(new_password)
+                    updates["password"] = hashed
+
+                if updates:
+                    row_num = [u.get("username") for u in user_records].index(username) + 2
+                    for col_name, value in updates.items():
+                        col_idx = list(user_records[0].keys()).index(col_name) + 1 if col_name in user_records[0] else None
+                        if col_idx:
+                            sheet.worksheet("Users").update_cell(row_num, col_idx, value)
+                    st.success("Profile updated successfully!")
+                    st.rerun()
                 else:
-                    try:
-                        hasher = stauth.Hasher()
-                        hashed = hasher.hash(new_password)
-                        row_num = [u.get("username") for u in user_records].index(username) + 2
-                        sheet.worksheet("Users").update_cell(row_num, 4, hashed)
-                        st.success("Password changed successfully!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+                    st.info("No changes made.")
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
