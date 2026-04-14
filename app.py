@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.30"  # Added Football Operations page for assigning coaches, assistants, managers, trainers to teams
+VERSION = "v3.31"  # Football Ops: Head Coach, Manager, Trainer now use dropdown of users with Coach role
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -88,6 +88,10 @@ if authentication_status is True:
         equipment_headers = ["PlayerID", "First Name", "Last Name", "Helmet", "Shoulder Pads", "Pants", "Belt", "Pant Pads", "Secured Rental", "Payment Method"]
         sheet.worksheet("Equipment").update([equipment_headers])
         equipment_df = pd.DataFrame(columns=equipment_headers)
+
+    # Get list of users with Coach role for dropdowns
+    all_users = get_worksheet_data("Users")
+    coach_users = all_users[all_users.get("roles", "").str.contains("Coach", case=False, na=False)]["name"].dropna().unique().tolist()
 
     def calculate_age_group(dob_str, season_year):
         try:
@@ -172,8 +176,6 @@ if authentication_status is True:
         st.session_state.page = "🏕️ Events"
     if (is_coach or is_admin) and st.sidebar.button("🏈 Coach Portal", key="nav_coach", use_container_width=True):
         st.session_state.page = "🏈 Coach Portal"
-    
-    # New Football Operations button - visible to Admin and Registrar
     if (is_admin or is_registrar) and st.sidebar.button("⚙️ Football Operations", key="nav_operations", use_container_width=True):
         st.session_state.page = "⚙️ Football Operations"
 
@@ -400,7 +402,8 @@ if authentication_status is True:
             selected_team = st.selectbox("Select Team", team_list, key="ops_team_select")
 
             # Get current staff for this team
-            team_row = teams_df[teams_df["TeamName"] == selected_team].iloc[0] if not teams_df.empty else None
+            team_row_idx = teams_df[teams_df["TeamName"] == selected_team].index
+            team_row = teams_df.iloc[team_row_idx[0]] if len(team_row_idx) > 0 else None
 
             st.subheader(f"Current Staff for {selected_team}")
             if team_row is not None:
@@ -411,13 +414,24 @@ if authentication_status is True:
 
             st.subheader("Update / Assign Staff")
             with st.form("staff_form", clear_on_submit=False):
-                head_coach = st.text_input("Head Coach", value=team_row.get("Coach", "") if team_row is not None else "")
+                # Head Coach, Manager, Trainer - dropdown of Coach-role users
+                head_coach = st.selectbox("Head Coach", options=[""] + coach_users, 
+                                         index=0 if not team_row is not None or team_row.get("Coach") not in coach_users 
+                                         else coach_users.index(team_row.get("Coach")) + 1, 
+                                         key="head_coach_select")
+
                 assistant_coaches = st.text_input("Assistant Coach(es) - comma separated", 
                                                  value=team_row.get("Assistant Coach", "") if team_row is not None else "")
-                team_manager = st.text_input("Team Manager", 
-                                            value=team_row.get("Team Manager", "") if team_row is not None else "")
-                trainer = st.text_input("Trainer / Medical Staff", 
-                                       value=team_row.get("Trainer", "") if team_row is not None else "")
+
+                team_manager = st.selectbox("Team Manager", options=[""] + coach_users, 
+                                           index=0 if not team_row is not None or team_row.get("Team Manager") not in coach_users 
+                                           else coach_users.index(team_row.get("Team Manager")) + 1, 
+                                           key="manager_select")
+
+                trainer = st.selectbox("Trainer / Medical Staff", options=[""] + coach_users, 
+                                      index=0 if not team_row is not None or team_row.get("Trainer") not in coach_users 
+                                      else coach_users.index(team_row.get("Trainer")) + 1, 
+                                      key="trainer_select")
 
                 submitted = st.form_submit_button("💾 Save Staff Assignments")
                 if submitted:
@@ -483,7 +497,7 @@ if authentication_status is True:
             if not alerts_found:
                 st.success("No medical alerts for this team.")
 
-    # (Equipment, Restricted Health, Events, Admin, Profile pages remain the same as v3.28)
+    # (Equipment, Restricted Health, Events, Admin, Profile pages unchanged from previous version)
 
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
