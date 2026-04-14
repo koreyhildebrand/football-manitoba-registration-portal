@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.8"  # Restricted Health now limited by team via RestrictedTeams column
+VERSION = "v3.10"  # Team assignment now uses exact "Team Assignment" column from your sheet
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -101,7 +101,7 @@ if authentication_status is True:
     elif "Date of Birth" in players_df.columns:
         players_df["AgeGroup"] = players_df["Date of Birth"].apply(lambda x: calculate_age_group(x, datetime.date.today().year))
 
-    # User roles + RestrictedTeams permission
+    # User roles + RestrictedTeams
     user_records = get_worksheet_data("Users").to_dict("records")
     user_row = next((u for u in user_records if u.get("username") == username), None)
     roles_str = user_row.get("roles", "") if user_row else ""
@@ -111,7 +111,6 @@ if authentication_status is True:
     can_ro = is_admin or can_rw or "ReadOnly" in roles
     can_restricted = is_admin or "Restricted" in roles
 
-    # NEW: Restricted Teams (comma-separated or "All")
     restricted_teams_str = user_row.get("RestrictedTeams", "") if user_row else ""
     allowed_teams = [t.strip() for t in restricted_teams_str.split(",") if t.strip()]
     can_see_all_teams = not allowed_teams or any(t.lower() == "all" for t in allowed_teams) or is_admin
@@ -163,9 +162,9 @@ if authentication_status is True:
 
         df_display = players_df.copy()
         if selected_team != "All Players":
-            df_display = df_display[df_display.get("Division", "") == selected_team]
+            df_display = df_display[df_display.get("Team Assignment", "") == selected_team]
 
-        display_cols = ["Timestamp", "First Name", "Last Name", "Birthdate", "Gender", "Division", "Weight", "Years Experience",
+        display_cols = ["Timestamp", "First Name", "Last Name", "Birthdate", "Gender", "Team Assignment", "Weight", "Years Experience",
                         "Contact Phone Number", "Email", "Primary Contact", "MB Health Number"]
         available_cols = [c for c in display_cols if c in df_display.columns]
         df_display = df_display[available_cols]
@@ -206,8 +205,8 @@ if authentication_status is True:
             with col5: st.metric("U16", len(players_df[players_df.get("AgeGroup", "") == "U16"]))
             st.subheader("Current Team Roster Summary")
             if not teams_df.empty and "TeamName" in teams_df.columns:
-                team_summary = players_df.groupby("Division")["First Name"].count().reset_index()
-                team_summary.columns = ["TeamName", "Players Assigned"]
+                team_summary = players_df.groupby("Team Assignment")["First Name"].count().reset_index()
+                team_summary.columns = ["Team Assignment", "Players Assigned"]
                 st.dataframe(team_summary, width="stretch", hide_index=True)
             else:
                 st.info("No teams created yet.")
@@ -219,7 +218,7 @@ if authentication_status is True:
                 st.rerun()
             show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
             if show_unassigned:
-                available_players = players_df[players_df.get("Division", "").isna() | (players_df.get("Division", "") == "")]
+                available_players = players_df[players_df.get("Team Assignment", "").isna() | (players_df.get("Team Assignment", "") == "")]
             else:
                 available_players = players_df
             player_list = (available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str)).tolist()
@@ -247,7 +246,7 @@ if authentication_status is True:
                 t_sel = st.selectbox("Assign to Existing Team", matching_teams + ["— Create New Team —"], key="assign_team")
                 if t_sel and t_sel != "— Create New Team —":
                     if st.button("Assign Player to Team", key="assign_btn"):
-                        players_df.at[idx, "Division"] = t_sel   # using Division column from your form
+                        players_df.at[idx, "Team Assignment"] = t_sel
                         sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
                         st.success(f"✅ {p_sel} assigned to {t_sel}!")
                 if t_sel == "— Create New Team —":
@@ -261,7 +260,7 @@ if authentication_status is True:
                                 new_team_row = {"TeamName": new_team_name, "Division": player_age_group, "Coach": new_coach if new_coach else ""}
                                 teams_df = pd.concat([teams_df, pd.DataFrame([new_team_row])], ignore_index=True)
                                 sheet.worksheet("Teams").update([teams_df.columns.values.tolist()] + teams_df.fillna("").values.tolist())
-                                players_df.at[idx, "Division"] = new_team_name
+                                players_df.at[idx, "Team Assignment"] = new_team_name
                                 sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
                                 st.success(f"✅ New team '{new_team_name}' created and {p_sel} assigned!")
                                 st.rerun()
@@ -337,16 +336,16 @@ if authentication_status is True:
         if selected_team == "All Teams":
             equip_roster = players_df.copy()
         else:
-            equip_roster = players_df[players_df.get("Division", "") == selected_team].copy()
+            equip_roster = players_df[players_df.get("Team Assignment", "") == selected_team].copy()
         if not equip_roster.empty:
             st.subheader(f"Equipment for {selected_team}")
             equip_df = equipment_df.copy()
             if "PlayerID" not in equip_df.columns:
                 equip_df["PlayerID"] = ""
             for idx, player in equip_roster.iterrows():
-                player_id = f"{player['First Name']}_{player['Last Name']}_{player.get('Birthdate', '')}"
+                player_id = f"{player.get('First Name','')}_{player.get('Last Name','')}_{player.get('Birthdate','')}"
                 existing = equip_df[equip_df["PlayerID"] == player_id]
-                with st.expander(f"{player['First Name']} {player['Last Name']}"):
+                with st.expander(f"{player.get('First Name','')} {player.get('Last Name','')}"):
                     col1, col2 = st.columns(2)
                     with col1:
                         helmet = st.checkbox("Helmet", value=existing["Helmet"].iloc[0] if not existing.empty else False, key=f"helm_{idx}")
@@ -382,7 +381,6 @@ if authentication_status is True:
         if can_restricted:
             st.header("🔒 Restricted Health Data")
 
-            # Team dropdown limited by user's RestrictedTeams
             if can_see_all_teams:
                 team_options = ["All Teams"] + sorted(teams_df["TeamName"].dropna().unique().tolist())
             else:
@@ -393,7 +391,7 @@ if authentication_status is True:
             if selected_team == "All Teams":
                 roster = players_df.copy()
             else:
-                roster = players_df[players_df.get("Division", "") == selected_team].copy()
+                roster = players_df[players_df.get("Team Assignment", "") == selected_team].copy()
 
             if not roster.empty:
                 st.subheader(f"Roster for {selected_team}")
@@ -407,7 +405,7 @@ if authentication_status is True:
 
                     alert_text = " | ".join(alerts) if alerts else ""
 
-                    with st.expander(f"{player['First Name']} {player['Last Name']} {'⚠️ ' + alert_text if alert_text else ''}"):
+                    with st.expander(f"{player.get('First Name','')} {player.get('Last Name','')} {'⚠️ ' + alert_text if alert_text else ''}"):
                         if alert_text:
                             st.error(f"**MEDICAL ALERT:** {alert_text}")
                         st.write(f"**Birthdate:** {player.get('Birthdate', 'N/A')}")
