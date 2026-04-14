@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.15"  # Fixed Restricted Health tab to check both roles and permissions columns
+VERSION = "v3.16"  # Removed permissions debug line from sidebar
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -133,7 +133,6 @@ if authentication_status is True:
     # ====================== SIDEBAR ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
-    st.sidebar.write("**Permissions:**", ", ".join(permissions) if permissions else "None")
     st.sidebar.caption(f"**Version:** {VERSION}")
 
     col1, col2 = st.sidebar.columns([1, 1])
