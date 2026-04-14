@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.14"  # Clean role-based permissions using only 'roles' column + team restrictions on all pages
+VERSION = "v3.15"  # Fixed Restricted Health tab to check both roles and permissions columns
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -107,13 +107,18 @@ if authentication_status is True:
     roles_str = user_row.get("roles", "") if user_row else ""
     roles = [r.strip() for r in roles_str.split(",") if r.strip()]
 
+    permissions_str = user_row.get("permissions", "") if user_row else ""
+    permissions = [p.strip() for p in permissions_str.split(",") if p.strip()]
+
     is_admin = "Admin" in roles
     is_registrar = "Registrar" in roles
     is_coach = "Coach" in roles
     is_equipment = "Equipment" in roles
-    can_restricted = is_admin or "Restricted" in roles
 
-    # Team restriction (applies to ALL pages)
+    # Check for Restricted access in BOTH columns
+    can_restricted = is_admin or any("Restricted" in r for r in roles) or any("Restricted" in p for p in permissions)
+
+    # Team restriction (applies everywhere)
     restricted_teams_str = user_row.get("RestrictedTeams", "") if user_row else ""
     allowed_teams = [t.strip() for t in restricted_teams_str.split(",") if t.strip()]
     can_see_all_teams = not allowed_teams or any(t.lower() == "all" for t in allowed_teams) or is_admin
@@ -128,6 +133,7 @@ if authentication_status is True:
     # ====================== SIDEBAR ======================
     st.sidebar.success(f"👤 {name}")
     st.sidebar.write("**Roles:**", ", ".join(roles) if roles else "None")
+    st.sidebar.write("**Permissions:**", ", ".join(permissions) if permissions else "None")
     st.sidebar.caption(f"**Version:** {VERSION}")
 
     col1, col2 = st.sidebar.columns([1, 1])
@@ -434,7 +440,7 @@ if authentication_status is True:
         if st.button("🔄 Refresh Events & Registrations", type="primary"):
             st.cache_data.clear()
             st.rerun()
-        df_filtered = filter_by_team(events_reg_df.copy())  # apply team filter if needed
+        df_filtered = filter_by_team(events_reg_df.copy())
         event_name_col = next((col for col in ["EventName", "Name", "Event"] if col in events_df.columns), None)
         if not events_df.empty and event_name_col:
             event_list = events_df[event_name_col].dropna().unique().tolist()
