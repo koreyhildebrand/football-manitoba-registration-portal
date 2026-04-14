@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.29"  # Admin role now has access to Coach Portal (can view any team)
+VERSION = "v3.30"  # Added Football Operations page for assigning coaches, assistants, managers, trainers to teams
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -170,10 +170,12 @@ if authentication_status is True:
         st.session_state.page = "🔒 Restricted Health"
     if (is_admin or is_registrar or is_coach) and st.sidebar.button("🏕️ Events", key="nav_events", use_container_width=True):
         st.session_state.page = "🏕️ Events"
-    
-    # Show Coach Portal button for both Coach role AND Admin role
     if (is_coach or is_admin) and st.sidebar.button("🏈 Coach Portal", key="nav_coach", use_container_width=True):
         st.session_state.page = "🏈 Coach Portal"
+    
+    # New Football Operations button - visible to Admin and Registrar
+    if (is_admin or is_registrar) and st.sidebar.button("⚙️ Football Operations", key="nav_operations", use_container_width=True):
+        st.session_state.page = "⚙️ Football Operations"
 
     if "page" not in st.session_state:
         st.session_state.page = "🏠 Landing"
@@ -184,7 +186,6 @@ if authentication_status is True:
     if page == "🏠 Landing":
         st.markdown(f"<h1 style='text-align: center;'>Welcome, {name}</h1>", unsafe_allow_html=True)
         
-        # Centered St. Vital Mustangs logo
         col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
         with col_logo2:
             st.image(
@@ -194,7 +195,6 @@ if authentication_status is True:
             )
         
         st.markdown(f"<p style='text-align: center; font-size: 18px;'>Your roles: **{', '.join(roles) if roles else 'None'}**</p>", unsafe_allow_html=True)
-        
         st.markdown("---")
         st.info("Use the **sidebar** on the left to navigate to your available sections.")
 
@@ -384,7 +384,59 @@ if authentication_status is True:
                     st.success(f"✅ Event '{e_name}' created!")
                     st.rerun()
 
-    # ====================== COACH PORTAL (Now available to Admin + Coach) ======================
+    # ====================== FOOTBALL OPERATIONS PAGE ======================
+    elif page == "⚙️ Football Operations" and (is_admin or is_registrar):
+        st.header("⚙️ Football Operations")
+        st.subheader("Assign Staff to Teams")
+
+        if st.button("🔄 Refresh Teams & Staff", type="primary"):
+            st.cache_data.clear()
+            st.rerun()
+
+        team_list = sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else []
+        if not team_list:
+            st.warning("No teams exist yet. Create teams in Registrar → Team Assignments first.")
+        else:
+            selected_team = st.selectbox("Select Team", team_list, key="ops_team_select")
+
+            # Get current staff for this team
+            team_row = teams_df[teams_df["TeamName"] == selected_team].iloc[0] if not teams_df.empty else None
+
+            st.subheader(f"Current Staff for {selected_team}")
+            if team_row is not None:
+                st.write(f"**Head Coach:** {team_row.get('Coach', '—')}")
+                st.write(f"**Assistant Coach(es):** {team_row.get('Assistant Coach', '—')}")
+                st.write(f"**Team Manager:** {team_row.get('Team Manager', '—')}")
+                st.write(f"**Trainer / Medical:** {team_row.get('Trainer', '—')}")
+
+            st.subheader("Update / Assign Staff")
+            with st.form("staff_form", clear_on_submit=False):
+                head_coach = st.text_input("Head Coach", value=team_row.get("Coach", "") if team_row is not None else "")
+                assistant_coaches = st.text_input("Assistant Coach(es) - comma separated", 
+                                                 value=team_row.get("Assistant Coach", "") if team_row is not None else "")
+                team_manager = st.text_input("Team Manager", 
+                                            value=team_row.get("Team Manager", "") if team_row is not None else "")
+                trainer = st.text_input("Trainer / Medical Staff", 
+                                       value=team_row.get("Trainer", "") if team_row is not None else "")
+
+                submitted = st.form_submit_button("💾 Save Staff Assignments")
+                if submitted:
+                    # Ensure columns exist
+                    for col in ["Assistant Coach", "Team Manager", "Trainer"]:
+                        if col not in teams_df.columns:
+                            teams_df[col] = ""
+
+                    idx = teams_df[teams_df["TeamName"] == selected_team].index[0]
+                    teams_df.at[idx, "Coach"] = head_coach.strip()
+                    teams_df.at[idx, "Assistant Coach"] = assistant_coaches.strip()
+                    teams_df.at[idx, "Team Manager"] = team_manager.strip()
+                    teams_df.at[idx, "Trainer"] = trainer.strip()
+
+                    sheet.worksheet("Teams").update([teams_df.columns.values.tolist()] + teams_df.fillna("").values.tolist())
+                    st.success(f"✅ Staff assignments saved for {selected_team}!")
+                    st.rerun()
+
+    # ====================== COACH PORTAL ======================
     elif page == "🏈 Coach Portal" and (is_coach or is_admin):
         st.header("🏈 Coach Portal")
         st.subheader(f"Welcome, {name}")
@@ -394,15 +446,13 @@ if authentication_status is True:
             st.rerun()
 
         if is_admin:
-            # Admins see ALL teams
             all_teams = teams_df["TeamName"].dropna().unique().tolist()
-            st.info("🔧 Admin Mode: You can view any team")
+            st.info("🔧 Admin Mode: Viewing all teams")
         else:
-            # Regular coaches see only teams where they are listed as Coach
             all_teams = teams_df[teams_df.get("Coach", "").str.contains(name, case=False, na=False)]["TeamName"].tolist()
 
         if not all_teams:
-            st.warning("No teams found. Contact the registrar if you should have access.")
+            st.warning("No teams found.")
         else:
             selected_team = st.selectbox("Select Team to View", all_teams, key="coach_team_select")
             coach_roster = players_df[players_df.get("Team Assignment", "") == selected_team].copy()
@@ -432,6 +482,8 @@ if authentication_status is True:
                     st.error(f"**{player.get('First Name','')} {player.get('Last Name','')}** – {' | '.join(alerts)}")
             if not alerts_found:
                 st.success("No medical alerts for this team.")
+
+    # (Equipment, Restricted Health, Events, Admin, Profile pages remain the same as v3.28)
 
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
