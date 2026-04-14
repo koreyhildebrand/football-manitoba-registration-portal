@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.25"  # Added dedicated Coach Portal for users with Coach role
+VERSION = "v3.26"  # Added clean Landing Page after login with role-based quick-access cards
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -170,16 +170,64 @@ if authentication_status is True:
         st.session_state.page = "🔒 Restricted Health"
     if (is_admin or is_registrar or is_coach) and st.sidebar.button("🏕️ Events", key="nav_events", use_container_width=True):
         st.session_state.page = "🏕️ Events"
-    if is_coach and st.sidebar.button("🏈 Coach Portal", key="nav_coach", use_container_width=True):   # New Coach Portal button
+    if is_coach and st.sidebar.button("🏈 Coach Portal", key="nav_coach", use_container_width=True):
         st.session_state.page = "🏈 Coach Portal"
 
     if "page" not in st.session_state:
-        st.session_state.page = "📋 Registrar"
+        st.session_state.page = "🏠 Landing"   # New default: Landing Page
 
     page = st.session_state.page
 
-    # ====================== PAGES ======================
-    if page == "📋 Registrar":
+    # ====================== LANDING PAGE ======================
+    if page == "🏠 Landing":
+        st.header(f"Welcome back, {name} 👋")
+        st.subheader("St. Vital Mustangs Registration Portal")
+        
+        st.markdown("### Quick Access")
+        
+        cols = st.columns(3)
+        
+        with cols[0]:
+            if (is_admin or is_registrar) and st.button("📋 Registrar Dashboard", key="land_reg", use_container_width=True):
+                st.session_state.page = "📋 Registrar"
+                st.rerun()
+            st.caption("Manage registrations, teams, events")
+
+        with cols[1]:
+            if is_coach and st.button("🏈 Coach Portal", key="land_coach", use_container_width=True):
+                st.session_state.page = "🏈 Coach Portal"
+                st.rerun()
+            st.caption("View your team roster & alerts")
+
+        with cols[2]:
+            if (is_admin or is_equipment) and st.button("🛡️ Equipment", key="land_equip", use_container_width=True):
+                st.session_state.page = "🛡️ Equipment"
+                st.rerun()
+            st.caption("Track gear loans")
+
+        cols2 = st.columns(3)
+        with cols2[0]:
+            if can_restricted and st.button("🔒 Restricted Health", key="land_health", use_container_width=True):
+                st.session_state.page = "🔒 Restricted Health"
+                st.rerun()
+            st.caption("View medical information")
+
+        with cols2[1]:
+            if (is_admin or is_registrar or is_coach) and st.button("🏕️ Events", key="land_events", use_container_width=True):
+                st.session_state.page = "🏕️ Events"
+                st.rerun()
+            st.caption("Manage events & check-ins")
+
+        with cols2[2]:
+            if is_admin and st.button("🔧 Admin", key="land_admin", use_container_width=True):
+                st.session_state.page = "🔧 Admin"
+                st.rerun()
+            st.caption("User management")
+
+        st.info("Use the sidebar for full navigation or click the buttons above to get started quickly.")
+
+    # ====================== REGISTRAR PAGE ======================
+    elif page == "📋 Registrar":
         st.header("📋 Registrar")
         selected_year = st.selectbox("Select Season Year", [2024, 2025, 2026, 2027], index=2, key="global_season_year")
         
@@ -222,6 +270,7 @@ if authentication_status is True:
                 st.info("No teams created yet.")
 
         elif subpage == "Team Assignments":
+            # (Team Assignments code remains the same as v3.25)
             st.subheader("👥 Team Assignments")
             if st.button("🔄 Refresh Teams & Players", type="primary"):
                 st.cache_data.clear()
@@ -364,7 +413,8 @@ if authentication_status is True:
                     st.success(f"✅ Event '{e_name}' created!")
                     st.rerun()
 
-    elif page == "🏈 Coach Portal" and is_coach:   # New Coach Portal
+    # Coach Portal (unchanged from v3.25)
+    elif page == "🏈 Coach Portal" and is_coach:
         st.header("🏈 Coach Portal")
         st.subheader(f"Welcome, Coach {name}")
 
@@ -372,17 +422,12 @@ if authentication_status is True:
             st.cache_data.clear()
             st.rerun()
 
-        # Find teams this coach is assigned to
         my_teams = teams_df[teams_df.get("Coach", "").str.contains(name, case=False, na=False)]["TeamName"].tolist()
         if not my_teams:
             st.warning("You are not currently assigned as coach to any team. Contact the registrar to be added.")
         else:
             st.success(f"You are coaching: **{', '.join(my_teams)}**")
-
-            # Team selector (if coaching multiple)
             selected_coach_team = st.selectbox("Select Team to View", my_teams, key="coach_team_select")
-
-            # Filter players for this team
             coach_roster = players_df[players_df.get("Team Assignment", "") == selected_coach_team].copy()
 
             search = st.text_input("🔍 Search roster", key="coach_search")
@@ -396,7 +441,6 @@ if authentication_status is True:
             st.dataframe(df_to_show, width="stretch", hide_index=True, use_container_width=True)
             st.caption(f"Showing {len(df_to_show)} players on {selected_coach_team}")
 
-            # Medical Alerts for this team
             st.subheader("⚠️ Medical Alerts")
             alerts_found = False
             for idx, player in coach_roster.iterrows():
@@ -406,16 +450,15 @@ if authentication_status is True:
                 if player.get("Does your player have Epilepsy?") == "Yes": alerts.append("Epilepsy")
                 if player.get("Does your player have a Heart Condition?") == "Yes": alerts.append("Heart Condition")
                 if player.get("Is your player a Diabetic?") == "Yes": alerts.append("Diabetic")
-
                 if alerts:
                     alerts_found = True
-                    alert_text = " | ".join(alerts)
-                    st.error(f"**{player.get('First Name','')} {player.get('Last Name','')}** – {alert_text}")
-
+                    st.error(f"**{player.get('First Name','')} {player.get('Last Name','')}** – {' | '.join(alerts)}")
             if not alerts_found:
                 st.success("No medical alerts for this team.")
 
+    # (Equipment, Restricted Health, Events, Admin, Profile pages remain exactly as in v3.25)
     elif page == "🛡️ Equipment":
+        # ... (same Equipment code as before - omitted here for brevity but included in full script you copy)
         st.header("🛡️ Equipment Loan Tracking")
         df_filtered = filter_by_team(players_df.copy())
         team_options = ["All Teams"] + sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else ["All Teams"]
@@ -464,7 +507,10 @@ if authentication_status is True:
         else:
             st.info("No players found for the selected team.")
 
+    # (Restricted Health, Events, Admin, Profile pages are unchanged – full code is in the version you copy)
+
     elif page == "🔒 Restricted Health":
+        # (same as v3.25)
         if can_restricted:
             st.header("🔒 Restricted Health Data")
             if can_see_all_teams:
@@ -503,7 +549,10 @@ if authentication_status is True:
         else:
             st.warning("🔒 Restricted access denied.")
 
+    # Events, Admin, Profile pages are identical to v3.25 (full code included when you copy)
+
     elif page == "🏕️ Events":
+        # (Events page code from previous version)
         st.header("🏕️ Events – Registered Participants & Check-In")
         if st.button("🔄 Refresh Events & Registrations", type="primary"):
             st.cache_data.clear()
@@ -550,6 +599,7 @@ if authentication_status is True:
             st.warning("No events found. Please create events in Registrar → Event Creation first.")
 
     elif page == "🔧 Admin" and is_admin:
+        # (Admin page unchanged)
         st.header("🔧 Admin – User Management")
         users_df = get_worksheet_data("Users")
         st.subheader("Users")
