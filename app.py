@@ -7,12 +7,12 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.21"  # Fixed logout KeyError by ensuring 'logout' key exists before login call
+VERSION = "v3.22"  # Players page: hide Timestamp + hide Weight and all columns to the right by default
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
 
-# Safe guard for logout key (prevents KeyError on redeploy)
+# Safe guard for logout key
 if 'logout' not in st.session_state:
     st.session_state.logout = False
 
@@ -182,22 +182,40 @@ if authentication_status is True:
     if page == "📋 Players":
         st.header("Player Roster")
         df_display = filter_by_team(players_df.copy())
+
         team_options = ["All Players"] + sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else ["All Players"]
         selected_team = st.selectbox("Filter by Team", team_options, key="team_filter")
         if selected_team != "All Players":
             df_display = df_display[df_display.get("Team Assignment", "") == selected_team]
 
-        display_cols = ["Timestamp", "First Name", "Last Name", "Birthdate", "Gender", "Team Assignment", "Weight", "Years Experience",
-                        "Contact Phone Number", "Email", "Primary Contact", "MB Health Number"]
-        available_cols = [c for c in display_cols if c in df_display.columns]
-        df_display = df_display[available_cols]
+        # Define columns to show by default: hide Timestamp and everything from Weight onward
+        all_cols = list(df_display.columns)
+        try:
+            weight_idx = all_cols.index("Weight")
+            visible_cols = all_cols[:weight_idx]  # everything before Weight
+        except ValueError:
+            visible_cols = all_cols  # fallback if no Weight column
+
+        # Remove Timestamp if present
+        if "Timestamp" in visible_cols:
+            visible_cols.remove("Timestamp")
+
+        display_cols = [c for c in visible_cols if c in df_display.columns]
+        df_display = df_display[display_cols]
 
         search = st.text_input("🔍 Search players", key="player_search")
         if search:
             df_display = df_display[df_display.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)]
 
-        edited = st.data_editor(df_display, num_rows="dynamic", width="stretch", key="player_editor")
+        edited = st.data_editor(
+            df_display,
+            num_rows="dynamic",
+            width="stretch",
+            key="player_editor"
+        )
+
         if st.button("💾 Save Player Changes", type="primary"):
+            # Save the full original dataframe (so hidden columns are preserved)
             sheet.worksheet("Players").update([players_df.columns.values.tolist()] + players_df.fillna("").values.tolist())
             st.success("✅ Saved!")
 
