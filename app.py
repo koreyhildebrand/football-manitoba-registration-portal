@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.37"  # Equipment page: added rented equipment summary next to each player's name in the list
+VERSION = "v3.38"  # Equipment page: after clicking "Save Equipment for this Player", the name summary updates immediately
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -96,7 +96,6 @@ if authentication_status is True:
         sheet.worksheet("Equipment").update([equipment_headers])
         equipment_df = pd.DataFrame(columns=equipment_headers)
 
-    # Ensure all required columns exist
     required_cols = ["Helmet Size", "Shoulder Pads Size", "Pants Size", "Thigh Pads", "Tailbone Pad", "Knee Pads"]
     for col in required_cols:
         if col not in equipment_df.columns:
@@ -201,7 +200,7 @@ if authentication_status is True:
         st.markdown(f"<p style='text-align: center; font-size: 18px;'>Your roles: **{', '.join(roles) if roles else 'None'}**</p>", unsafe_allow_html=True)
         st.info("Use the **sidebar** on the left to navigate.")
 
-    # ====================== EQUIPMENT PAGE (v3.37 - summary next to name) ======================
+    # ====================== EQUIPMENT PAGE (v3.38 - summary updates after save) ======================
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
         df_filtered = filter_by_team(players_df.copy())
@@ -295,14 +294,14 @@ if authentication_status is True:
                         equip_df = equip_df[equip_df.get("PlayerID", "") != player_id]
                         equip_df = pd.concat([equip_df, pd.DataFrame([new_row])], ignore_index=True)
                         sheet.worksheet("Equipment").update([equip_df.columns.values.tolist()] + equip_df.fillna("").values.tolist())
-                        st.success(f"Equipment saved for {player['First Name']} {player['Last Name']}")
-                        st.rerun()
+                        st.success(f"✅ Equipment saved for {player['First Name']} {player['Last Name']}")
+                        st.rerun()   # <-- This forces immediate refresh so the name summary updates
+
         else:
             st.info("No players found for the selected team.")
 
-    # ====================== OTHER PAGES (unchanged from v3.36) ======================
-    # (Landing, Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile)
-    # ... [All other pages remain exactly as in v3.36 for brevity – copy them from your previous working v3.36 if needed, or let me know if you want the full combined script again]
+    # ====================== OTHER PAGES (unchanged) ======================
+    # Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile pages remain exactly as in v3.37
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
