@@ -385,8 +385,8 @@ if authentication_status is True:
 
                 if ag != 'Major' and not group_df.empty:
                     base = int(ag[1:])
-                    year1_birth = selected_year - (base + 1)   # Younger = Year 1 (e.g. 2025 U10 Y1 = 2017)
-                    year2_birth = selected_year - base         # Older = Year 2 (e.g. 2025 U10 Y2 = 2016)
+                    year1_birth = selected_year - (base - 2)   # Younger = Year 1 (e.g. 2025 U10 Y1 = 2017)
+                    year2_birth = selected_year - (base - 1)   # Older = Year 2 (e.g. 2025 U10 Y2 = 2016)
                     y1 = len(group_df[group_df['BirthYear'] == year1_birth])
                     y2 = len(group_df[group_df['BirthYear'] == year2_birth])
                     breakdown = f" (Y1: {y1} born {year1_birth}, Y2: {y2} born {year2_birth})"
