@@ -1,15 +1,22 @@
 import streamlit as st
 import pandas as pd
-from config import VERSION, PAGE_ICON, TITLE
-from utils.auth import initialize_authenticator
-from utils.sheets import get_worksheet_data
-from utils.helpers import filter_by_team
 
-# ====================== PAGE CONFIG ======================
+# ====================== CONFIG ======================
+from config import VERSION, PAGE_ICON, TITLE
+
+# Hide the automatic multi-page navigation sidebar (the list you don't like)
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none !important;}
+        [data-testid="stSidebarNav"] + div {display: none !important;}
+    </style>
+""", unsafe_allow_html=True)
+
 st.set_page_config(page_title=TITLE, layout="wide", page_icon=PAGE_ICON)
 st.title(f"🏈 {TITLE}")
 
 # ====================== AUTHENTICATION ======================
+from utils.auth import initialize_authenticator
 authenticator = initialize_authenticator()
 authenticator.login(location='main')
 
@@ -19,12 +26,14 @@ if st.session_state.get('authentication_status') is True:
     sheet = st.session_state.sheet
 
     # ====================== LOAD CORE DATA ======================
+    from utils.sheets import get_worksheet_data
     players_df = get_worksheet_data("Players")
     teams_df = get_worksheet_data("Teams")
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
     # ====================== ROLE SYSTEM ======================
+    from utils.helpers import filter_by_team
     user_records = get_worksheet_data("Users").to_dict("records")
     user_row = next((u for u in user_records if u.get("username") == username), None)
     roles_str = user_row.get("roles", "") if user_row else ""
@@ -106,7 +115,7 @@ if st.session_state.get('authentication_status') is True:
 
     elif page == "Football Operations":
         from pages.football_operations import show_football_operations
-        show_football_operations(teams_df, sheet)
+        show_football_operations(teams_df, sheet, is_admin)   # ← fixed missing argument
 
     elif page == "Admin" and is_admin:
         from pages.admin import show_admin
