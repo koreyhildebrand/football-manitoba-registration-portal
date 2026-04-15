@@ -1,10 +1,11 @@
 import streamlit as st
 import streamlit_authenticator as stauth
+from utils.sheets import get_worksheet_data   # ← This was missing
 
 
 def show_admin(sheet):
     st.header("🔧 Admin – User Management")
-    users_df = get_worksheet_data("Users")  # from utils.sheets
+    users_df = get_worksheet_data("Users")
 
     if not users_df.empty:
         user_list = users_df["username"].tolist()
