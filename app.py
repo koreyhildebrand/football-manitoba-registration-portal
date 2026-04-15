@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.56"  # FULL SCRIPT - Equipment summary now exactly matches sheet after save
+VERSION = "v3.56"  # FULL SCRIPT - All pages working. Equipment summary now exactly matches sheet after save (forced refresh)
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -482,7 +482,7 @@ if authentication_status is True:
                     st.success(f"✅ Event '{e_name}' created!")
                     st.rerun()
 
-    # ====================== FOOTBALL OPERATIONS ======================
+    # ====================== FOOTBALL OPERATIONS PAGE ======================
     elif page == "⚙️ Football Operations" and (is_admin or is_registrar):
         st.header("⚙️ Football Operations")
         st.subheader("Assign Staff to Teams")
