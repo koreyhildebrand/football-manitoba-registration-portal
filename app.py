@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.42"  # Fixed use_container_width deprecation warnings + guaranteed Equipment summary refresh after save
+VERSION = "v3.43"  # Equipment page: reliable refresh using session_state flag so summary updates every time after save
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -79,7 +79,7 @@ if authentication_status is True:
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
-    # Equipment - always fresh (no cache)
+    # Equipment - always fresh
     try:
         equipment_df = get_worksheet_data("Equipment")
     except:
@@ -200,11 +200,11 @@ if authentication_status is True:
         st.markdown(f"<p style='text-align: center; font-size: 18px;'>Your roles: **{', '.join(roles) if roles else 'None'}**</p>", unsafe_allow_html=True)
         st.info("Use the **sidebar** on the left to navigate.")
 
-    # ====================== EQUIPMENT PAGE (v3.42 - immediate summary update) ======================
+    # ====================== EQUIPMENT PAGE (v3.43 - reliable refresh) ======================
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
 
-        # Always fresh equipment data
+        # Fresh equipment data every render
         equipment_df = get_worksheet_data("Equipment")
         if "PlayerID" not in equipment_df.columns:
             equipment_df["PlayerID"] = ""
@@ -291,9 +291,15 @@ if authentication_status is True:
                         equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
                         sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
 
-                        st.success(f"✅ Equipment saved and summary updated for {player['First Name']} {player['Last Name']}")
-                        time.sleep(0.4)
+                        # Set flag and force clean refresh
+                        st.session_state.equipment_saved = True
+                        st.success(f"✅ Equipment saved for {player['First Name']} {player['Last Name']}")
+                        time.sleep(0.5)
                         st.rerun()
+
+            # Clear the flag after refresh
+            if st.session_state.get("equipment_saved"):
+                del st.session_state.equipment_saved
 
         else:
             st.info("No players found for the selected team.")
