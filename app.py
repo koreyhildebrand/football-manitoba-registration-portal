@@ -370,23 +370,20 @@ if authentication_status is True:
             if 'Timestamp' in df.columns:
                 df = df.sort_values('Timestamp', ascending=False).drop_duplicates(subset='PlayerID', keep='first')
 
-            # Calculate AgeGroup for the selected season year
-            df['AgeGroup'] = df['Birthdate'].apply(lambda x: calculate_age_group(x, selected_year))
-
-            # Birth year for Year 1 / Year 2
+            # Birth year for grouping
             df['BirthYear'] = pd.to_datetime(df['Birthdate'], errors='coerce').dt.year
 
             st.subheader(f"Registered Players – {selected_year} Season")
             cols = st.columns(6)
             age_groups = ['U10', 'U12', 'U14', 'U16', 'U18', 'Major']
             for i, ag in enumerate(age_groups):
-                group_df = df[df['AgeGroup'] == ag]
+                group_df = df[df['AgeGroup'] == ag] if 'AgeGroup' in df.columns else df  # fallback
                 total = len(group_df)
 
                 if ag != 'Major' and not group_df.empty:
                     base = int(ag[1:])
-                    year1_birth = selected_year - (base - 2)   # Younger = Year 1
-                    year2_birth = selected_year - (base - 1)   # Older = Year 2
+                    year1_birth = selected_year - (base - 2)   # Younger = Year 1 (2017 for U10 2025)
+                    year2_birth = selected_year - (base - 1)   # Older = Year 2 (2016 for U10 2025)
                     y1 = len(group_df[group_df['BirthYear'] == year1_birth])
                     y2 = len(group_df[group_df['BirthYear'] == year2_birth])
                     breakdown = f" (Y1: {y1} born {year1_birth}, Y2: {y2} born {year2_birth})"
