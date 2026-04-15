@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.63"  # Fixed boolean sync (TRUE/FALSE strings from sheet now read correctly)
+VERSION = "v3.64"  # Checkboxes default unchecked + cached Equipment (quota safe) + correct summary
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -56,6 +56,7 @@ username = st.session_state.get('username')
 if authentication_status is True:
     sheet = st.session_state.sheet
 
+    @st.cache_data(ttl=60)  # Cached with short TTL to respect quota limits
     def get_worksheet_data(ws_name):
         try:
             ws = sheet.worksheet(ws_name)
@@ -73,13 +74,13 @@ if authentication_status is True:
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
-    # ====================== EQUIPMENT - LIVE FETCH ONLY ======================
+    # ====================== EQUIPMENT (cached + safe defaults) ======================
+    @st.cache_data(ttl=60)
     def get_live_equipment():
         try:
             ws = sheet.worksheet("Equipment")
             data = ws.get_all_records()
             df = pd.DataFrame(data)
-            # Force columns
             required_cols = ["PlayerID","First Name","Last Name","Helmet","Helmet Size","Shoulder Pads","Shoulder Pads Size","Pants w/Belt","Pants Size","Thigh Pads","Tailbone Pad","Knee Pads","Secured Rental"]
             for col in required_cols:
                 if col not in df.columns:
@@ -89,7 +90,7 @@ if authentication_status is True:
             return pd.DataFrame(columns=["PlayerID","First Name","Last Name","Helmet","Helmet Size","Shoulder Pads","Shoulder Pads Size","Pants w/Belt","Pants Size","Thigh Pads","Tailbone Pad","Knee Pads","Secured Rental"])
 
     def to_bool(val):
-        if pd.isna(val) or val == "":
+        if pd.isna(val) or val == "" or val is None:
             return False
         val_str = str(val).strip().lower()
         return val_str in ["true", "1", "yes", "t"]
@@ -190,7 +191,8 @@ if authentication_status is True:
     elif page == "🛡️ Equipment" and (is_admin or is_equipment_role):
         st.header("🛡️ Equipment Management")
 
-        if st.button("🔄 Refresh All Equipment Data (Live)", type="primary", width='stretch'):
+        if st.button("🔄 Refresh All Equipment Data", type="primary", width='stretch'):
+            st.cache_data.clear()
             st.rerun()
 
         col_r, col_ret = st.columns(2)
@@ -215,7 +217,8 @@ if authentication_status is True:
 
         if equip_sub == "Rental":
             st.subheader(f"📦 Rental – {selected_team}")
-            if st.button("🔄 Live Refresh Rental List", type="primary", width='stretch'):
+            if st.button("🔄 Refresh Rental List", type="primary", width='stretch'):
+                st.cache_data.clear()
                 st.rerun()
 
             for idx, player in roster.iterrows():
@@ -280,7 +283,8 @@ if authentication_status is True:
 
         elif equip_sub == "Return":
             st.subheader(f"🔄 Return – {selected_team}")
-            if st.button("🔄 Live Refresh Return List", type="primary", width='stretch'):
+            if st.button("🔄 Refresh Return List", type="primary", width='stretch'):
+                st.cache_data.clear()
                 st.rerun()
 
             for idx, player in roster.iterrows():
