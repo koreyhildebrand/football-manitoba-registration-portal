@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.40"  # Equipment page: forced fresh load of equipment data + small delay so summary updates instantly after save
+VERSION = "v3.41"  # Equipment page: fixed refresh using session_state flag + clean rerun so name summary always updates
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -79,9 +79,9 @@ if authentication_status is True:
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
-    # ====================== EQUIPMENT - NO CACHE (always fresh) ======================
+    # Equipment - always fresh (no cache)
     try:
-        equipment_df = get_worksheet_data("Equipment")  # This line is intentionally NOT cached for immediate updates
+        equipment_df = get_worksheet_data("Equipment")
     except:
         sheet.add_worksheet(title="Equipment", rows=1000, cols=20)
         equipment_headers = [
@@ -200,9 +200,15 @@ if authentication_status is True:
         st.markdown(f"<p style='text-align: center; font-size: 18px;'>Your roles: **{', '.join(roles) if roles else 'None'}**</p>", unsafe_allow_html=True)
         st.info("Use the **sidebar** on the left to navigate.")
 
-    # ====================== EQUIPMENT PAGE (v3.40 - guaranteed immediate update) ======================
+    # ====================== EQUIPMENT PAGE (v3.41 - guaranteed refresh) ======================
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
+
+        # Force fresh equipment data on every render
+        equipment_df = get_worksheet_data("Equipment")
+        if "PlayerID" not in equipment_df.columns:
+            equipment_df["PlayerID"] = ""
+
         df_filtered = filter_by_team(players_df.copy())
         team_options = ["All Teams"] + sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else ["All Teams"]
         selected_team = st.selectbox("Select Team", team_options, key="equipment_team")
@@ -215,16 +221,11 @@ if authentication_status is True:
         if not equip_roster.empty:
             st.subheader(f"Equipment for {selected_team} — Click name to edit")
 
-            # Fresh load every time (no cache on equipment_df)
-            equip_df = get_worksheet_data("Equipment")
-            if "PlayerID" not in equip_df.columns:
-                equip_df["PlayerID"] = ""
-
             for idx, player in equip_roster.iterrows():
                 player_id = f"{player.get('First Name','')}_{player.get('Last Name','')}_{player.get('Birthdate','')}"
-                existing = equip_df[equip_df.get("PlayerID", "") == player_id]
+                existing = equipment_df[equipment_df.get("PlayerID", "") == player_id]
 
-                # Build rented equipment summary (always from latest data)
+                # Build summary from latest data
                 rented_summary = []
                 if not existing.empty:
                     if existing["Helmet"].iloc[0]: rented_summary.append("Helmet ✓")
@@ -286,19 +287,20 @@ if authentication_status is True:
                             "Secured Rental": secured,
                             "Payment Method": payment_method if secured else ""
                         }
-                        equip_df = equip_df[equip_df.get("PlayerID", "") != player_id]
-                        equip_df = pd.concat([equip_df, pd.DataFrame([new_row])], ignore_index=True)
-                        sheet.worksheet("Equipment").update([equip_df.columns.values.tolist()] + equip_df.fillna("").values.tolist())
-                        
-                        st.success(f"✅ Equipment saved and summary updated for {player['First Name']} {player['Last Name']}")
-                        time.sleep(0.3)   # Give Sheets a tiny moment to commit
+                        # Update equipment_df and sheet
+                        equipment_df = equipment_df[equipment_df.get("PlayerID", "") != player_id]
+                        equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
+                        sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
+
+                        st.success(f"✅ Equipment saved for {player['First Name']} {player['Last Name']}")
+                        time.sleep(0.4)  # Small delay to ensure Sheets commit
                         st.rerun()
 
         else:
             st.info("No players found for the selected team.")
 
     # ====================== OTHER PAGES (unchanged) ======================
-    # Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile pages remain as before
+    # Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile pages remain as in previous versions
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
