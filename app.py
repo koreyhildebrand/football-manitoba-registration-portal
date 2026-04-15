@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.38"  # Equipment page: after clicking "Save Equipment for this Player", the name summary updates immediately
+VERSION = "v3.39"  # Equipment page: fixed refresh so name summary updates immediately after save
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -79,7 +79,7 @@ if authentication_status is True:
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
-    # Equipment sheet
+    # Equipment sheet (always fresh)
     try:
         equipment_df = get_worksheet_data("Equipment")
     except:
@@ -200,7 +200,7 @@ if authentication_status is True:
         st.markdown(f"<p style='text-align: center; font-size: 18px;'>Your roles: **{', '.join(roles) if roles else 'None'}**</p>", unsafe_allow_html=True)
         st.info("Use the **sidebar** on the left to navigate.")
 
-    # ====================== EQUIPMENT PAGE (v3.38 - summary updates after save) ======================
+    # ====================== EQUIPMENT PAGE (v3.39 - fixed immediate refresh) ======================
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
         df_filtered = filter_by_team(players_df.copy())
@@ -215,7 +215,8 @@ if authentication_status is True:
         if not equip_roster.empty:
             st.subheader(f"Equipment for {selected_team} — Click name to edit")
 
-            equip_df = equipment_df.copy()
+            # Load equipment fresh every time
+            equip_df = get_worksheet_data("Equipment")
             if "PlayerID" not in equip_df.columns:
                 equip_df["PlayerID"] = ""
 
@@ -225,26 +226,20 @@ if authentication_status is True:
 
                 # Build rented equipment summary
                 rented_summary = []
-                if existing.get("Helmet", pd.Series([False])).iloc[0] if not existing.empty else False:
-                    rented_summary.append("Helmet ✓")
-                if existing.get("Shoulder Pads", pd.Series([False])).iloc[0] if not existing.empty else False:
-                    rented_summary.append("Shoulder Pads ✓")
-                if existing.get("Pants", pd.Series([False])).iloc[0] if not existing.empty else False:
-                    rented_summary.append("Pants ✓")
-                if existing.get("Belt", pd.Series([False])).iloc[0] if not existing.empty else False:
-                    rented_summary.append("Belt ✓")
-                if existing.get("Pant Pads", pd.Series([False])).iloc[0] if not existing.empty else False:
-                    pads = []
-                    if existing.get("Thigh Pads", pd.Series([False])).iloc[0] if not existing.empty else False:
-                        pads.append("Thigh")
-                    if existing.get("Tailbone Pad", pd.Series([False])).iloc[0] if not existing.empty else False:
-                        pads.append("Tailbone")
-                    if existing.get("Knee Pads", pd.Series([False])).iloc[0] if not existing.empty else False:
-                        pads.append("Knee")
-                    if pads:
-                        rented_summary.append(f"Pant Pads ({', '.join(pads)})")
-                    else:
-                        rented_summary.append("Pant Pads ✓")
+                if not existing.empty:
+                    if existing["Helmet"].iloc[0]: rented_summary.append("Helmet ✓")
+                    if existing["Shoulder Pads"].iloc[0]: rented_summary.append("Shoulder Pads ✓")
+                    if existing["Pants"].iloc[0]: rented_summary.append("Pants ✓")
+                    if existing["Belt"].iloc[0]: rented_summary.append("Belt ✓")
+                    if existing["Pant Pads"].iloc[0]:
+                        pads = []
+                        if existing["Thigh Pads"].iloc[0]: pads.append("Thigh")
+                        if existing["Tailbone Pad"].iloc[0]: pads.append("Tailbone")
+                        if existing["Knee Pads"].iloc[0]: pads.append("Knee")
+                        if pads:
+                            rented_summary.append(f"Pant Pads ({', '.join(pads)})")
+                        else:
+                            rented_summary.append("Pant Pads ✓")
 
                 summary_text = " | ".join(rented_summary) if rented_summary else "No equipment rented yet"
 
@@ -252,25 +247,25 @@ if authentication_status is True:
                     col1, col2 = st.columns([3, 2])
 
                     with col1:
-                        helmet = st.checkbox("Helmet", value=existing.get("Helmet", pd.Series([True])).iloc[0] if not existing.empty else True, key=f"helm_{idx}")
-                        helmet_size = st.text_input("Helmet Size", value=existing.get("Helmet Size", pd.Series([""])).iloc[0] if not existing.empty else "", key=f"helm_size_{idx}")
+                        helmet = st.checkbox("Helmet", value=existing["Helmet"].iloc[0] if not existing.empty else True, key=f"helm_{idx}")
+                        helmet_size = st.text_input("Helmet Size", value=existing["Helmet Size"].iloc[0] if not existing.empty else "", key=f"helm_size_{idx}")
 
-                        shoulder = st.checkbox("Shoulder Pads", value=existing.get("Shoulder Pads", pd.Series([True])).iloc[0] if not existing.empty else True, key=f"shoul_{idx}")
-                        shoulder_size = st.text_input("Shoulder Pads Size", value=existing.get("Shoulder Pads Size", pd.Series([""])).iloc[0] if not existing.empty else "", key=f"shoul_size_{idx}")
+                        shoulder = st.checkbox("Shoulder Pads", value=existing["Shoulder Pads"].iloc[0] if not existing.empty else True, key=f"shoul_{idx}")
+                        shoulder_size = st.text_input("Shoulder Pads Size", value=existing["Shoulder Pads Size"].iloc[0] if not existing.empty else "", key=f"shoul_size_{idx}")
 
-                        pants = st.checkbox("Pants", value=existing.get("Pants", pd.Series([True])).iloc[0] if not existing.empty else True, key=f"pants_{idx}")
-                        pants_size = st.text_input("Pants Size", value=existing.get("Pants Size", pd.Series([""])).iloc[0] if not existing.empty else "", key=f"pants_size_{idx}")
+                        pants = st.checkbox("Pants", value=existing["Pants"].iloc[0] if not existing.empty else True, key=f"pants_{idx}")
+                        pants_size = st.text_input("Pants Size", value=existing["Pants Size"].iloc[0] if not existing.empty else "", key=f"pants_size_{idx}")
 
                     with col2:
-                        belt = st.checkbox("Belt", value=existing.get("Belt", pd.Series([True])).iloc[0] if not existing.empty else True, key=f"belt_{idx}")
+                        belt = st.checkbox("Belt", value=existing["Belt"].iloc[0] if not existing.empty else True, key=f"belt_{idx}")
 
-                        pant_pads = st.checkbox("Pant Pads", value=existing.get("Pant Pads", pd.Series([True])).iloc[0] if not existing.empty else True, key=f"ppads_{idx}")
-                        thigh_pads = st.checkbox("Thigh Pads", value=existing.get("Thigh Pads", pd.Series([True])).iloc[0] if not existing.empty else True, key=f"thigh_{idx}")
-                        tailbone_pad = st.checkbox("Tailbone Pad", value=existing.get("Tailbone Pad", pd.Series([True])).iloc[0] if not existing.empty else True, key=f"tailbone_{idx}")
-                        knee_pads = st.checkbox("Knee Pads", value=existing.get("Knee Pads", pd.Series([True])).iloc[0] if not existing.empty else True, key=f"knee_{idx}")
+                        pant_pads = st.checkbox("Pant Pads", value=existing["Pant Pads"].iloc[0] if not existing.empty else True, key=f"ppads_{idx}")
+                        thigh_pads = st.checkbox("Thigh Pads", value=existing["Thigh Pads"].iloc[0] if not existing.empty else True, key=f"thigh_{idx}")
+                        tailbone_pad = st.checkbox("Tailbone Pad", value=existing["Tailbone Pad"].iloc[0] if not existing.empty else True, key=f"tailbone_{idx}")
+                        knee_pads = st.checkbox("Knee Pads", value=existing["Knee Pads"].iloc[0] if not existing.empty else True, key=f"knee_{idx}")
 
-                        secured = st.checkbox("Secured Rental with Cheque / Credit Card", value=existing.get("Secured Rental", pd.Series([False])).iloc[0] if not existing.empty else False, key=f"sec_{idx}")
-                        payment_method = st.text_input("Cheque # or Credit Card #", value=existing.get("Payment Method", pd.Series([""])).iloc[0] if not existing.empty else "", key=f"pay_{idx}")
+                        secured = st.checkbox("Secured Rental with Cheque / Credit Card", value=existing["Secured Rental"].iloc[0] if not existing.empty else False, key=f"sec_{idx}")
+                        payment_method = st.text_input("Cheque # or Credit Card #", value=existing["Payment Method"].iloc[0] if not existing.empty else "", key=f"pay_{idx}")
 
                     if st.button("Save Equipment for this Player", key=f"save_eq_{idx}"):
                         new_row = {
@@ -291,17 +286,19 @@ if authentication_status is True:
                             "Secured Rental": secured,
                             "Payment Method": payment_method if secured else ""
                         }
+                        # Remove old row and add new
                         equip_df = equip_df[equip_df.get("PlayerID", "") != player_id]
                         equip_df = pd.concat([equip_df, pd.DataFrame([new_row])], ignore_index=True)
                         sheet.worksheet("Equipment").update([equip_df.columns.values.tolist()] + equip_df.fillna("").values.tolist())
-                        st.success(f"✅ Equipment saved for {player['First Name']} {player['Last Name']}")
-                        st.rerun()   # <-- This forces immediate refresh so the name summary updates
+                        
+                        st.success(f"✅ Equipment saved and updated for {player['First Name']} {player['Last Name']}")
+                        st.rerun()   # Full rerun so the summary in the expander title updates immediately
 
         else:
             st.info("No players found for the selected team.")
 
-    # ====================== OTHER PAGES (unchanged) ======================
-    # Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile pages remain exactly as in v3.37
+    # ====================== OTHER PAGES (unchanged from previous stable version) ======================
+    # Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile pages are identical to v3.37
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
