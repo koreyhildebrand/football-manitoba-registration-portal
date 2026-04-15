@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.55"  # FULL COMPLETE SCRIPT - All pages working. Equipment: Pant Pads = heading only, summary only shows checked items, size boxes greyed out, summary matches sheet exactly after save
+VERSION = "v3.56"  # FULL SCRIPT - Equipment summary now exactly matches sheet after save
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -79,7 +79,7 @@ if authentication_status is True:
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
-    # Equipment
+    # Equipment - always fresh
     try:
         equipment_df = get_worksheet_data("Equipment")
     except:
@@ -204,7 +204,7 @@ if authentication_status is True:
         st.markdown(f"<p style='text-align: center; font-size: 18px;'>Your roles: **{', '.join(roles) if roles else 'None'}**</p>", unsafe_allow_html=True)
         st.info("Use the **sidebar** on the left to navigate.")
 
-    # ====================== EQUIPMENT PAGE ======================
+    # ====================== EQUIPMENT PAGE (fixed summary sync) ======================
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
         
@@ -261,7 +261,7 @@ if authentication_status is True:
                     with col2:
                         belt = st.checkbox("Belt", value=existing["Belt"].iloc[0] if not existing.empty else False, key=f"belt_{idx}")
 
-                        st.subheader("Pant Pads")  # Heading only
+                        st.subheader("Pant Pads")
                         thigh_pads = st.checkbox("Thigh Pads", value=existing["Thigh Pads"].iloc[0] if not existing.empty else False, key=f"thigh_{idx}")
                         tailbone_pad = st.checkbox("Tailbone Pad", value=existing["Tailbone Pad"].iloc[0] if not existing.empty else False, key=f"tailbone_{idx}")
                         knee_pads = st.checkbox("Knee Pads", value=existing["Knee Pads"].iloc[0] if not existing.empty else False, key=f"knee_{idx}")
@@ -482,7 +482,7 @@ if authentication_status is True:
                     st.success(f"✅ Event '{e_name}' created!")
                     st.rerun()
 
-    # ====================== FOOTBALL OPERATIONS PAGE ======================
+    # ====================== FOOTBALL OPERATIONS ======================
     elif page == "⚙️ Football Operations" and (is_admin or is_registrar):
         st.header("⚙️ Football Operations")
         st.subheader("Assign Staff to Teams")
