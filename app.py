@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.54"  # Equipment: summary now exactly matches checkboxes after save, size boxes greyed out when unchecked
+VERSION = "v3.55"  # Equipment: summary now exactly matches sheet after save, only shows checked items
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -200,7 +200,7 @@ if authentication_status is True:
         st.markdown(f"<p style='text-align: center; font-size: 18px;'>Your roles: **{', '.join(roles) if roles else 'None'}**</p>", unsafe_allow_html=True)
         st.info("Use the **sidebar** on the left to navigate.")
 
-    # ====================== EQUIPMENT PAGE (fixed summary + grey size boxes) ======================
+    # ====================== EQUIPMENT PAGE (fixed summary) ======================
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
         
@@ -228,7 +228,7 @@ if authentication_status is True:
                 player_id = f"{player.get('First Name','')}_{player.get('Last Name','')}_{player.get('Birthdate','')}"
                 existing = equipment_df[equipment_df.get("PlayerID", "") == player_id]
 
-                # Build summary - only include checked items, pads listed separately
+                # Build summary - ONLY include items that are actually checked
                 rented_summary = []
                 if not existing.empty:
                     if existing["Helmet"].iloc[0]: rented_summary.append("Helmet ✓")
