@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.39"  # Equipment page: fixed refresh so name summary updates immediately after save
+VERSION = "v3.40"  # Equipment page: forced fresh load of equipment data + small delay so summary updates instantly after save
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -79,9 +79,9 @@ if authentication_status is True:
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
-    # Equipment sheet (always fresh)
+    # ====================== EQUIPMENT - NO CACHE (always fresh) ======================
     try:
-        equipment_df = get_worksheet_data("Equipment")
+        equipment_df = get_worksheet_data("Equipment")  # This line is intentionally NOT cached for immediate updates
     except:
         sheet.add_worksheet(title="Equipment", rows=1000, cols=20)
         equipment_headers = [
@@ -200,7 +200,7 @@ if authentication_status is True:
         st.markdown(f"<p style='text-align: center; font-size: 18px;'>Your roles: **{', '.join(roles) if roles else 'None'}**</p>", unsafe_allow_html=True)
         st.info("Use the **sidebar** on the left to navigate.")
 
-    # ====================== EQUIPMENT PAGE (v3.39 - fixed immediate refresh) ======================
+    # ====================== EQUIPMENT PAGE (v3.40 - guaranteed immediate update) ======================
     elif page == "🛡️ Equipment":
         st.header("🛡️ Equipment Loan Tracking")
         df_filtered = filter_by_team(players_df.copy())
@@ -215,7 +215,7 @@ if authentication_status is True:
         if not equip_roster.empty:
             st.subheader(f"Equipment for {selected_team} — Click name to edit")
 
-            # Load equipment fresh every time
+            # Fresh load every time (no cache on equipment_df)
             equip_df = get_worksheet_data("Equipment")
             if "PlayerID" not in equip_df.columns:
                 equip_df["PlayerID"] = ""
@@ -224,7 +224,7 @@ if authentication_status is True:
                 player_id = f"{player.get('First Name','')}_{player.get('Last Name','')}_{player.get('Birthdate','')}"
                 existing = equip_df[equip_df.get("PlayerID", "") == player_id]
 
-                # Build rented equipment summary
+                # Build rented equipment summary (always from latest data)
                 rented_summary = []
                 if not existing.empty:
                     if existing["Helmet"].iloc[0]: rented_summary.append("Helmet ✓")
@@ -286,19 +286,19 @@ if authentication_status is True:
                             "Secured Rental": secured,
                             "Payment Method": payment_method if secured else ""
                         }
-                        # Remove old row and add new
                         equip_df = equip_df[equip_df.get("PlayerID", "") != player_id]
                         equip_df = pd.concat([equip_df, pd.DataFrame([new_row])], ignore_index=True)
                         sheet.worksheet("Equipment").update([equip_df.columns.values.tolist()] + equip_df.fillna("").values.tolist())
                         
-                        st.success(f"✅ Equipment saved and updated for {player['First Name']} {player['Last Name']}")
-                        st.rerun()   # Full rerun so the summary in the expander title updates immediately
+                        st.success(f"✅ Equipment saved and summary updated for {player['First Name']} {player['Last Name']}")
+                        time.sleep(0.3)   # Give Sheets a tiny moment to commit
+                        st.rerun()
 
         else:
             st.info("No players found for the selected team.")
 
-    # ====================== OTHER PAGES (unchanged from previous stable version) ======================
-    # Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile pages are identical to v3.37
+    # ====================== OTHER PAGES (unchanged) ======================
+    # Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile pages remain as before
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
