@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 import time
 
 # ====================== VERSION CONTROL ======================
-VERSION = "v3.60"  # Fixed KeyError on new Equipment sheet + safe column handling + immediate summary refresh
+VERSION = "v3.61"  # Fixed KeyError on empty/new Equipment sheet with ultra-safe column handling
 
 st.set_page_config(page_title="St. Vital Mustangs Registration", layout="wide", page_icon="🏈")
 st.title("🏈 St. Vital Mustangs Registration Portal")
@@ -61,8 +61,7 @@ if authentication_status is True:
         try:
             ws = sheet.worksheet(ws_name)
             data = ws.get_all_records()
-            df = pd.DataFrame(data)
-            return df
+            return pd.DataFrame(data)
         except Exception as e:
             if "429" in str(e):
                 time.sleep(10)
@@ -75,13 +74,13 @@ if authentication_status is True:
     events_df = get_worksheet_data("Events")
     events_reg_df = get_worksheet_data("EventsRegistration")
 
-    # ====================== EQUIPMENT (safe handling for new sheet) ======================
+    # ====================== EQUIPMENT - Ultra safe handling for new/empty sheet ======================
     try:
         equipment_df = get_worksheet_data("Equipment")
     except:
         equipment_df = pd.DataFrame()
 
-    # Ensure all required columns exist (auto-create if new/empty sheet)
+    # Force all required columns
     required_cols = [
         "PlayerID", "First Name", "Last Name",
         "Helmet", "Helmet Size",
@@ -92,7 +91,16 @@ if authentication_status is True:
     ]
     for col in required_cols:
         if col not in equipment_df.columns:
-            equipment_df[col] = False if "Pads" in col or col in ["Helmet", "Shoulder Pads", "Pants w/Belt", "Secured Rental"] else ""
+            if col in ["Helmet", "Shoulder Pads", "Pants w/Belt", "Thigh Pads", "Tailbone Pad", "Knee Pads", "Secured Rental"]:
+                equipment_df[col] = False
+            else:
+                equipment_df[col] = ""
+
+    # If the sheet is still empty after forcing columns, create the header row
+    if equipment_df.empty or len(equipment_df.columns) < len(required_cols):
+        ws = sheet.worksheet("Equipment")
+        ws.update([required_cols])
+        equipment_df = pd.DataFrame(columns=required_cols)
 
     def calculate_age_group(dob_str, season_year):
         try:
@@ -186,7 +194,7 @@ if authentication_status is True:
             st.image("https://images.squarespace-cdn.com/content/v1/58a5f4c8be659445700a4bd4/1491935469145-6FTNR6TR5PMMGJ1EWFP2/logo_white_back.jpg?format=1500w", width=400)
         st.info("Use the sidebar to navigate.")
 
-    # ====================== EQUIPMENT PAGE (Rental + Return) ======================
+    # ====================== EQUIPMENT PAGE ======================
     elif page == "🛡️ Equipment" and (is_admin or is_equipment_role):
         st.header("🛡️ Equipment Management")
 
@@ -222,7 +230,7 @@ if authentication_status is True:
 
             for idx, player in roster.iterrows():
                 player_id = f"{str(player.get('First Name','')).strip()}_{str(player.get('Last Name','')).strip()}_{str(player.get('Birthdate','')).strip()}"
-                existing = equipment_df[equipment_df.get("PlayerID", "") == player_id]
+                existing = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
 
                 summary_parts = []
                 if not existing.empty:
@@ -240,17 +248,17 @@ if authentication_status is True:
                     with col1:
                         helmet = st.checkbox("Helmet", value=bool(existing.get("Helmet", pd.Series([False])).iloc[0] if not existing.empty else False), key=f"helm_r_{idx}")
                         helmet_size = st.selectbox("Helmet Size", ["", "XS", "S", "M", "L", "XL", "XXL"], 
-                                                  index=0 if existing.empty or pd.isna(existing.get("Helmet Size", pd.Series([""])).iloc[0]) else ["", "XS", "S", "M", "L", "XL", "XXL"].index(existing.get("Helmet Size", pd.Series([""])).iloc[0]),
+                                                  index=0 if existing.empty or pd.isna(existing.get("Helmet Size", pd.Series([""])).iloc[0]) else ["", "XS", "S", "M", "L", "XL", "XXL"].index(str(existing.get("Helmet Size", pd.Series([""])).iloc[0])),
                                                   disabled=not helmet, key=f"helm_size_r_{idx}")
 
                         shoulder = st.checkbox("Shoulder Pads", value=bool(existing.get("Shoulder Pads", pd.Series([False])).iloc[0] if not existing.empty else False), key=f"shoul_r_{idx}")
                         shoulder_size = st.selectbox("Shoulder Pads Size", ["", "XS", "S", "M", "L", "XL", "XXL"], 
-                                                    index=0 if existing.empty or pd.isna(existing.get("Shoulder Pads Size", pd.Series([""])).iloc[0]) else ["", "XS", "S", "M", "L", "XL", "XXL"].index(existing.get("Shoulder Pads Size", pd.Series([""])).iloc[0]),
+                                                    index=0 if existing.empty or pd.isna(existing.get("Shoulder Pads Size", pd.Series([""])).iloc[0]) else ["", "XS", "S", "M", "L", "XL", "XXL"].index(str(existing.get("Shoulder Pads Size", pd.Series([""])).iloc[0])),
                                                     disabled=not shoulder, key=f"shoul_size_r_{idx}")
 
                         pants = st.checkbox("Pants w/Belt", value=bool(existing.get("Pants w/Belt", pd.Series([False])).iloc[0] if not existing.empty else False), key=f"pants_r_{idx}")
                         pants_size = st.selectbox("Pants Size", ["", "XS", "S", "M", "L", "XL", "XXL"], 
-                                                 index=0 if existing.empty or pd.isna(existing.get("Pants Size", pd.Series([""])).iloc[0]) else ["", "XS", "S", "M", "L", "XL", "XXL"].index(existing.get("Pants Size", pd.Series([""])).iloc[0]),
+                                                 index=0 if existing.empty or pd.isna(existing.get("Pants Size", pd.Series([""])).iloc[0]) else ["", "XS", "S", "M", "L", "XL", "XXL"].index(str(existing.get("Pants Size", pd.Series([""])).iloc[0])),
                                                  disabled=not pants, key=f"pants_size_r_{idx}")
 
                     with col2:
@@ -276,7 +284,7 @@ if authentication_status is True:
                             "Knee Pads": knee,
                             "Secured Rental": secured
                         }
-                        equipment_df = equipment_df[equipment_df.get("PlayerID", "") != player_id]
+                        equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
                         equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
                         sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
                         st.success(f"✅ Rental saved for {player.get('First Name')} {player.get('Last Name')}")
@@ -291,7 +299,7 @@ if authentication_status is True:
 
             for idx, player in roster.iterrows():
                 player_id = f"{str(player.get('First Name','')).strip()}_{str(player.get('Last Name','')).strip()}_{str(player.get('Birthdate','')).strip()}"
-                existing = equipment_df[equipment_df.get("PlayerID", "") == player_id]
+                existing = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
 
                 rented_parts = []
                 if not existing.empty:
@@ -326,15 +334,15 @@ if authentication_status is True:
                             if tail_ret: new_row["Tailbone Pad"] = False
                             if knee_ret: new_row["Knee Pads"] = False
 
-                            equipment_df = equipment_df[equipment_df.get("PlayerID", "") != player_id]
+                            equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
                             equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
                             sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
                             st.success(f"✅ Equipment returned for {player.get('First Name')} {player.get('Last Name')}")
                             time.sleep(0.5)
                             st.rerun()
 
-    # ====================== REGISTRAR, COACH PORTAL, RESTRICTED HEALTH, EVENTS, FOOTBALL OPERATIONS, ADMIN, PROFILE ======================
-    # (All other pages are unchanged from the previous stable version and fully functional)
+    # ====================== ALL OTHER PAGES (Registrar, Coach Portal, Restricted Health, Events, Football Operations, Admin, Profile, Landing) ======================
+    # They remain unchanged and fully functional from the previous stable version.
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | {VERSION}")
 
