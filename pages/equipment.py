@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment Rental & Return page – sizes now use radio buttons for speed."""
+    """Equipment Rental & Return page – previous year info now red & bold."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -67,7 +67,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if to_bool(existing.get("Knee Pads")): summary_parts.append("Knee Pads ✓")
             current_rented = " | ".join(summary_parts) if summary_parts else "No equipment rented yet"
 
-            # Previous year info
+            # Previous year data
             prev_year = selected_year - 1
             prev_weight = "N/A"
             prev_sizes = []
@@ -89,47 +89,40 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if to_bool(existing.get("Pants w/Belt")):
                 prev_sizes.append(f"Pants {existing.get('Pants Size', '—')}")
 
-            prev_text = f" | Prev {prev_year}: {prev_weight} lbs"
+            prev_text = f"Prev {prev_year}: {prev_weight} lbs"
             if prev_sizes:
                 prev_text += f" ({', '.join(prev_sizes)})"
 
-            summary_line = f"Weight: {current_weight} lbs | {current_rented}{prev_text}"
+            # Summary line (current info only)
+            summary_line = f"Weight: {current_weight} lbs | {current_rented}"
 
             with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
-                # === Radio buttons for sizes (faster input) ===
-                col1, col2 = st.columns([3, 2])
+                # Previous year info in RED and BOLD
+                st.markdown(f"<span style='color:red; font-weight:bold;'>**{prev_text}**</span>", unsafe_allow_html=True)
 
+                col1, col2 = st.columns([3, 2])
                 with col1:
-                    # Helmet row
                     helmet = st.checkbox("Helmet", value=to_bool(existing.get("Helmet")), key=f"helm_r_{idx}")
                     if helmet:
-                        helmet_size = st.radio(
-                            "Helmet Size", ["XS", "S", "M", "L", "XL", "XXL"],
-                            index=["XS", "S", "M", "L", "XL", "XXL"].index(existing.get("Helmet Size", "M")) if existing.get("Helmet Size") else 2,
-                            key=f"helm_size_r_{idx}", horizontal=True
-                        )
+                        helmet_size = st.radio("Helmet Size", ["XS", "S", "M", "L", "XL", "XXL"],
+                                               index=["XS","S","M","L","XL","XXL"].index(existing.get("Helmet Size","M")) if existing.get("Helmet Size") else 2,
+                                               key=f"helm_size_r_{idx}", horizontal=True)
                     else:
                         helmet_size = ""
 
-                    # Shoulder row
                     shoulder = st.checkbox("Shoulder Pads", value=to_bool(existing.get("Shoulder Pads")), key=f"shoul_r_{idx}")
                     if shoulder:
-                        shoulder_size = st.radio(
-                            "Shoulder Size", ["XS", "S", "M", "L", "XL", "XXL"],
-                            index=["XS", "S", "M", "L", "XL", "XXL"].index(existing.get("Shoulder Pads Size", "M")) if existing.get("Shoulder Pads Size") else 2,
-                            key=f"shoul_size_r_{idx}", horizontal=True
-                        )
+                        shoulder_size = st.radio("Shoulder Size", ["XS", "S", "M", "L", "XL", "XXL"],
+                                                 index=["XS","S","M","L","XL","XXL"].index(existing.get("Shoulder Pads Size","M")) if existing.get("Shoulder Pads Size") else 2,
+                                                 key=f"shoul_size_r_{idx}", horizontal=True)
                     else:
                         shoulder_size = ""
 
-                    # Pants row
                     pants = st.checkbox("Pants w/Belt", value=to_bool(existing.get("Pants w/Belt")), key=f"pants_r_{idx}")
                     if pants:
-                        pants_size = st.radio(
-                            "Pants Size", ["XS", "S", "M", "L", "XL", "XXL"],
-                            index=["XS", "S", "M", "L", "XL", "XXL"].index(existing.get("Pants Size", "M")) if existing.get("Pants Size") else 2,
-                            key=f"pants_size_r_{idx}", horizontal=True
-                        )
+                        pants_size = st.radio("Pants Size", ["XS", "S", "M", "L", "XL", "XXL"],
+                                              index=["XS","S","M","L","XL","XXL"].index(existing.get("Pants Size","M")) if existing.get("Pants Size") else 2,
+                                              key=f"pants_size_r_{idx}", horizontal=True)
                     else:
                         pants_size = ""
 
@@ -164,7 +157,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     time.sleep(0.5)
                     st.rerun()
 
-    # ====================== RETURN SUBPAGE (unchanged) ======================
+    # ====================== RETURN SUBPAGE ======================
     else:
         st.subheader(f"🔄 Return – {selected_team} ({selected_year} Season)")
         if st.button("🔄 Refresh Return List", type="primary", width='stretch'):
