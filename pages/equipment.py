@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – sizes now right next to checkbox + previous year red & bold."""
+    """Equipment page – reverted to sizes below checkbox + red & bold previous year."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -94,40 +94,29 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                 # Previous year info in red & bold
                 st.markdown(f"<span style='color:red; font-weight:bold;'>**{prev_text}**</span>", unsafe_allow_html=True)
 
-                # === Compact layout: checkbox + size radio on the SAME line ===
                 col1, col2 = st.columns([3, 2])
-
                 with col1:
-                    # Helmet row
                     helmet = st.checkbox("Helmet", value=to_bool(existing.get("Helmet")), key=f"helm_r_{idx}")
                     if helmet:
-                        helmet_size = st.radio(
-                            "Helmet Size", ["XS", "S", "M", "L", "XL", "XXL"],
-                            index=["XS","S","M","L","XL","XXL"].index(existing.get("Helmet Size","M")) if existing.get("Helmet Size") else 2,
-                            key=f"helm_size_r_{idx}", horizontal=True
-                        )
+                        helmet_size = st.radio("Helmet Size", ["XS", "S", "M", "L", "XL", "XXL"],
+                                               index=["XS","S","M","L","XL","XXL"].index(existing.get("Helmet Size","M")) if existing.get("Helmet Size") else 2,
+                                               key=f"helm_size_r_{idx}", horizontal=True)
                     else:
                         helmet_size = ""
 
-                    # Shoulder row
                     shoulder = st.checkbox("Shoulder Pads", value=to_bool(existing.get("Shoulder Pads")), key=f"shoul_r_{idx}")
                     if shoulder:
-                        shoulder_size = st.radio(
-                            "Shoulder Size", ["XS", "S", "M", "L", "XL", "XXL"],
-                            index=["XS","S","M","L","XL","XXL"].index(existing.get("Shoulder Pads Size","M")) if existing.get("Shoulder Pads Size") else 2,
-                            key=f"shoul_size_r_{idx}", horizontal=True
-                        )
+                        shoulder_size = st.radio("Shoulder Size", ["XS", "S", "M", "L", "XL", "XXL"],
+                                                 index=["XS","S","M","L","XL","XXL"].index(existing.get("Shoulder Pads Size","M")) if existing.get("Shoulder Pads Size") else 2,
+                                                 key=f"shoul_size_r_{idx}", horizontal=True)
                     else:
                         shoulder_size = ""
 
-                    # Pants row
                     pants = st.checkbox("Pants w/Belt", value=to_bool(existing.get("Pants w/Belt")), key=f"pants_r_{idx}")
                     if pants:
-                        pants_size = st.radio(
-                            "Pants Size", ["XS", "S", "M", "L", "XL", "XXL"],
-                            index=["XS","S","M","L","XL","XXL"].index(existing.get("Pants Size","M")) if existing.get("Pants Size") else 2,
-                            key=f"pants_size_r_{idx}", horizontal=True
-                        )
+                        pants_size = st.radio("Pants Size", ["XS", "S", "M", "L", "XL", "XXL"],
+                                              index=["XS","S","M","L","XL","XXL"].index(existing.get("Pants Size","M")) if existing.get("Pants Size") else 2,
+                                              key=f"pants_size_r_{idx}", horizontal=True)
                     else:
                         pants_size = ""
 
@@ -162,7 +151,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     time.sleep(0.5)
                     st.rerun()
 
-    # ====================== RETURN SUBPAGE (unchanged) ======================
+    # ====================== RETURN SUBPAGE ======================
     else:
         st.subheader(f"🔄 Return – {selected_team} ({selected_year} Season)")
         if st.button("🔄 Refresh Return List", type="primary", width='stretch'):
