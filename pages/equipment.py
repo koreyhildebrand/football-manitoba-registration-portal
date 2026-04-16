@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment Rental & Return page with previous year info in summary."""
+    """Equipment page with current rented items + previous year info in summary."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -57,6 +57,17 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             # Current weight
             current_weight = player.get("Weight", "N/A")
 
+            # Current rented items (original summary style)
+            summary_parts = []
+            if to_bool(existing.get("Helmet")): summary_parts.append("Helmet ✓")
+            if to_bool(existing.get("Shoulder Pads")): summary_parts.append("Shoulder Pads ✓")
+            if to_bool(existing.get("Pants w/Belt")): summary_parts.append("Pants w/Belt ✓")
+            if to_bool(existing.get("Thigh Pads")): summary_parts.append("Thigh Pads ✓")
+            if to_bool(existing.get("Tailbone Pad")): summary_parts.append("Tailbone Pad ✓")
+            if to_bool(existing.get("Knee Pads")): summary_parts.append("Knee Pads ✓")
+
+            current_rented = " | ".join(summary_parts) if summary_parts else "No equipment rented yet"
+
             # Previous year data
             prev_year = selected_year - 1
             prev_weight = "N/A"
@@ -72,7 +83,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                 if not prev_row.empty:
                     prev_weight = prev_row.iloc[0].get("Weight", "N/A")
 
-            # Previous sizes from Equipment sheet
             if to_bool(existing.get("Helmet")):
                 prev_sizes.append(f"Helmet {existing.get('Helmet Size', '—')}")
             if to_bool(existing.get("Shoulder Pads")):
@@ -84,8 +94,8 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if prev_sizes:
                 prev_text += f" ({', '.join(prev_sizes)})"
 
-            # Summary line now includes everything (no need to expand)
-            summary_line = f"Weight: {current_weight} lbs{prev_text}"
+            # Final summary line (current rented + previous year info)
+            summary_line = f"Weight: {current_weight} lbs | {current_rented}{prev_text}"
 
             with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
                 col1, col2 = st.columns([3, 2])
