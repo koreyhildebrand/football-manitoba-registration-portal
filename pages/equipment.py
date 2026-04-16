@@ -5,8 +5,16 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment Rental & Return page (performance-optimized)."""
+    """Equipment Rental & Return page with Rental Year filter."""
     st.header("🛡️ Equipment Management")
+
+    # ====================== RENTAL YEAR SELECTOR ======================
+    selected_year = st.selectbox(
+        "Select Rental Year",
+        [2024, 2025, 2026, 2027],
+        index=2,
+        key="equip_year"
+    )
 
     if st.button("🔄 Refresh All Equipment Data", type="primary", width='stretch'):
         st.cache_data.clear()
@@ -25,6 +33,18 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         st.session_state.equip_subpage = "Rental"
     equip_sub = st.session_state.equip_subpage
 
+    # ====================== FILTER PLAYERS BY SELECTED YEAR ======================
+    df = players_df.copy()
+    df['PlayerID'] = (df['First Name'].astype(str).str.strip() + "_" +
+                      df['Last Name'].astype(str).str.strip() + "_" +
+                      df['Birthdate'].astype(str).str.strip())
+
+    if 'Timestamp' in df.columns:
+        df['RegYear'] = pd.to_datetime(df['Timestamp'], errors='coerce').dt.year
+        df = df[df['RegYear'] == selected_year]
+        df = df.sort_values('Timestamp', ascending=False).drop_duplicates(subset='PlayerID', keep='first')
+
+    # ====================== TEAM SELECTOR ======================
     team_options = sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else []
     if not team_options:
         st.warning("No teams exist yet.")
@@ -32,12 +52,14 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
     selected_team = st.selectbox("Select Team", team_options, key="equip_team_filter")
 
-    # === LOAD DATA ONCE ===
-    roster = players_df[players_df.get("Team Assignment", "") == selected_team].copy()
+    # Use the year-filtered dataframe
+    roster = df[df.get("Team Assignment", "") == selected_team].copy()
+
+    # ====================== EQUIPMENT DATA ======================
     equipment_df = get_live_equipment()
 
     if equip_sub == "Rental":
-        st.subheader(f"📦 Rental – {selected_team}")
+        st.subheader(f"📦 Rental – {selected_team} ({selected_year} Season)")
         if st.button("🔄 Refresh Rental List", type="primary", width='stretch'):
             st.cache_data.clear()
             st.rerun()
@@ -47,7 +69,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             existing = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
             existing = existing.iloc[0] if not existing.empty else pd.Series()
 
-            # Summary
             summary_parts = []
             if to_bool(existing.get("Helmet")): summary_parts.append("Helmet ✓")
             if to_bool(existing.get("Shoulder Pads")): summary_parts.append("Shoulder Pads ✓")
@@ -90,14 +111,13 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     }
                     equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
                     equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
-
                     sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
                     st.success(f"✅ Rental saved for {player.get('First Name')} {player.get('Last Name')}")
                     time.sleep(0.5)
                     st.rerun()
 
     elif equip_sub == "Return":
-        st.subheader(f"🔄 Return – {selected_team}")
+        st.subheader(f"🔄 Return – {selected_team} ({selected_year} Season)")
         if st.button("🔄 Refresh Return List", type="primary", width='stretch'):
             st.cache_data.clear()
             st.rerun()
