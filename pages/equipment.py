@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – All Players + All Current Rentals (error fixed)."""
+    """Equipment page – All Players + All Current Rentals (Player Name fixed)."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -45,7 +45,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         df = df[df['RegYear'] == selected_year]
         df = df.sort_values('Timestamp', ascending=False).drop_duplicates(subset='PlayerID', keep='first')
 
-    # ====================== TEAM SELECTOR (with All Players) ======================
+    # ====================== TEAM SELECTOR ======================
     team_list = ["All Players"] + sorted(teams_df["TeamName"].dropna().unique().tolist())
     selected_team = st.selectbox("Select Team", team_list, key="equip_team_filter")
 
@@ -80,7 +80,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if to_bool(existing.get("Knee Pads")): summary_parts.append("Knee Pads ✓")
             current_rented = " | ".join(summary_parts) if summary_parts else "No equipment rented yet"
 
-            # Previous year
             prev_year = selected_year - 1
             prev_weight = "N/A"
             prev_sizes = []
@@ -163,7 +162,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     time.sleep(0.5)
                     st.rerun()
 
-    # ====================== ALL CURRENT RENTALS SUBPAGE (SAFE) ======================
+    # ====================== ALL CURRENT RENTALS SUBPAGE ======================
     elif equip_sub == "All Rentals":
         st.subheader(f"📋 All Current Rentals")
 
@@ -180,14 +179,18 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                 on='PlayerID', how='left'
             )
 
-            # Safe Player column creation (this was causing the error)
-            first_name = display.get('First Name', pd.Series([""] * len(display))).fillna("")
-            last_name = display.get('Last Name', pd.Series([""] * len(display))).fillna("")
-            display['Player'] = (first_name + " " + last_name).str.strip()
+            # Robust Player name creation (this fixes the blank names)
+            display['Player'] = (
+                display.get('First Name', pd.Series([""] * len(display))).fillna("") + " " +
+                display.get('Last Name', pd.Series([""] * len(display))).fillna("")
+            ).str.strip()
+
+            # Fallback if name is still blank
+            display['Player'] = display['Player'].replace("", display.get('PlayerID', "Unknown Player"))
 
             display['Team'] = display.get('Team Assignment', pd.Series(["—"] * len(display))).fillna("—")
 
-            # Safe checkmark columns
+            # Checkmark columns
             for col in ['Helmet', 'Shoulder Pads', 'Pants w/Belt', 'Thigh Pads', 'Tailbone Pad', 'Knee Pads']:
                 if col in display.columns:
                     display[col] = display[col].apply(lambda x: "✅" if to_bool(x) else "")
