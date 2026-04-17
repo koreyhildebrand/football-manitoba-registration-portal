@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Prev year info now properly rendered in red inside the expander."""
+    """Equipment page – Previous year info back in the summary line (red)."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -79,7 +79,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if to_bool(existing.get("Knee Pads")): summary_parts.append("Knee Pads ✓")
             current_rented = " | ".join(summary_parts) if summary_parts else "No equipment rented yet"
 
-            # Previous year info (for red display inside expander)
+            # Previous year info
             prev_year = selected_year - 1
             prev_weight = "N/A"
             prev_sizes = []
@@ -102,11 +102,14 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if prev_sizes:
                 prev_text += f" ({', '.join(prev_sizes)})"
 
-            # Clean summary line (no HTML here)
-            summary_line = f"Weight: {current_weight} lbs | {current_rented}"
+            # Summary line with previous year inline (red)
+            summary_line = f"Weight: {current_weight} lbs | {current_rented} | <span style='color:red; font-weight:bold;'>{prev_text}</span>"
 
-            with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
-                # Previous year info rendered in red & bold
+            # Use plain text for the expander title (safe)
+            expander_title = f"**{player.get('First Name','')} {player.get('Last Name','')}** — Weight: {current_weight} lbs | {current_rented}"
+
+            with st.expander(expander_title):
+                # Red previous year info appears right at the top of the expander
                 st.markdown(f"<span style='color:red; font-weight:bold;'>{prev_text}</span>", unsafe_allow_html=True)
 
                 col1, col2 = st.columns([3, 2])
