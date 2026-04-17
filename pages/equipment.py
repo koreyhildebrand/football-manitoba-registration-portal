@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Prev year info now inline in the summary line (red)."""
+    """Equipment page – Prev year info inline in summary (red) + fixed expander error."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -102,10 +102,12 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if prev_sizes:
                 prev_text += f" ({', '.join(prev_sizes)})"
 
-            # Full summary line with previous year inline
+            # Summary line with previous year inline (red)
             summary_line = f"Weight: {current_weight} lbs | {current_rented} | <span style='color:red; font-weight:bold;'>{prev_text}</span>"
 
-            with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}", unsafe_allow_html=True):
+            with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
+                # Previous year info is already in the title, so we don't need to repeat it inside
+
                 col1, col2 = st.columns([3, 2])
                 with col1:
                     helmet = st.checkbox("Helmet", value=to_bool(existing.get("Helmet")), key=f"helm_r_{idx}")
