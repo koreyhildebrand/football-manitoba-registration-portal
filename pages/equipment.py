@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – All Players + All Current Rentals (filtered to selected year)."""
+    """Equipment page – Return page now only shows players with items checked out."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -34,7 +34,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         st.session_state.equip_subpage = "Rental"
     equip_sub = st.session_state.equip_subpage
 
-    # ====================== FILTER PLAYERS BY SELECTED YEAR ======================
+    # ====================== FILTER PLAYERS BY YEAR ======================
     df = players_df.copy()
     df['PlayerID'] = (df['First Name'].astype(str).str.strip() + "_" +
                       df['Last Name'].astype(str).str.strip() + "_" +
@@ -173,16 +173,15 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         rented_df = equipment_df.copy()
         rented_df = rented_df[rented_df.get("PlayerID", "").astype(str).str.strip() != ""]
 
-        # Only show equipment that has NOT been returned
+        # Only show not returned
         rented_df = rented_df[
             pd.isna(rented_df.get("ReturnDate")) | 
             (rented_df.get("ReturnDate", "").astype(str).str.strip() == "")
         ]
 
         if not rented_df.empty:
-            # Merge with the year-filtered df (this ensures only players from the selected year appear)
             display = rented_df.merge(
-                df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],  # use df, not players_df
+                df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],
                 on='PlayerID', how='left'
             )
 
@@ -239,57 +238,77 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         else:
             st.info("No equipment is currently rented out.")
 
-    # ====================== RETURN SUBPAGE ======================
+    # ====================== RETURN SUBPAGE (ONLY PLAYERS WITH ITEMS CHECKED OUT) ======================
     else:
         st.subheader(f"🔄 Return – {selected_team} ({selected_year} Season)")
         if st.button("🔄 Refresh Return List", type="primary", width='stretch'):
             st.cache_data.clear()
             st.rerun()
 
-        for idx, player in roster.iterrows():
-            player_id = f"{str(player.get('First Name','')).strip()}_{str(player.get('Last Name','')).strip()}_{str(player.get('Birthdate','')).strip()}"
-            existing = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
-            existing = existing.iloc[0] if not existing.empty else pd.Series()
+        # Only show players who have at least one item currently checked out
+        active_roster = roster.copy()
+        if not equipment_df.empty:
+            active_ids = equipment_df[
+                equipment_df.get("PlayerID", pd.Series([])).isin(roster['PlayerID']) &
+                (
+                    to_bool(equipment_df.get("Helmet")) |
+                    to_bool(equipment_df.get("Shoulder Pads")) |
+                    to_bool(equipment_df.get("Pants w/Belt")) |
+                    to_bool(equipment_df.get("Thigh Pads")) |
+                    to_bool(equipment_df.get("Tailbone Pad")) |
+                    to_bool(equipment_df.get("Knee Pads"))
+                )
+            ]['PlayerID'].unique()
 
-            rented_parts = []
-            if to_bool(existing.get("Helmet")): rented_parts.append("Helmet")
-            if to_bool(existing.get("Shoulder Pads")): rented_parts.append("Shoulder Pads")
-            if to_bool(existing.get("Pants w/Belt")): rented_parts.append("Pants w/Belt")
-            if to_bool(existing.get("Thigh Pads")): rented_parts.append("Thigh Pads")
-            if to_bool(existing.get("Tailbone Pad")): rented_parts.append("Tailbone Pad")
-            if to_bool(existing.get("Knee Pads")): rented_parts.append("Knee Pads")
+            active_roster = roster[roster['PlayerID'].isin(active_ids)].copy()
 
-            current_summary = " | ".join(rented_parts) if rented_parts else "Nothing currently rented"
+        if active_roster.empty:
+            st.info("No players currently have equipment checked out.")
+        else:
+            for idx, player in active_roster.iterrows():
+                player_id = f"{str(player.get('First Name','')).strip()}_{str(player.get('Last Name','')).strip()}_{str(player.get('Birthdate','')).strip()}"
+                existing = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
+                existing = existing.iloc[0] if not existing.empty else pd.Series()
 
-            with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — Currently out: {current_summary}"):
-                if not rented_parts:
-                    st.info("All equipment already returned.")
-                    continue
+                rented_parts = []
+                if to_bool(existing.get("Helmet")): rented_parts.append("Helmet")
+                if to_bool(existing.get("Shoulder Pads")): rented_parts.append("Shoulder Pads")
+                if to_bool(existing.get("Pants w/Belt")): rented_parts.append("Pants w/Belt")
+                if to_bool(existing.get("Thigh Pads")): rented_parts.append("Thigh Pads")
+                if to_bool(existing.get("Tailbone Pad")): rented_parts.append("Tailbone Pad")
+                if to_bool(existing.get("Knee Pads")): rented_parts.append("Knee Pads")
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    helmet_ret = st.checkbox("Return Helmet", value=True, key=f"helm_ret_{idx}") if to_bool(existing.get("Helmet")) else False
-                    shoulder_ret = st.checkbox("Return Shoulder Pads", value=True, key=f"shoul_ret_{idx}") if to_bool(existing.get("Shoulder Pads")) else False
-                    pants_ret = st.checkbox("Return Pants w/Belt", value=True, key=f"pants_ret_{idx}") if to_bool(existing.get("Pants w/Belt")) else False
-                with col2:
-                    thigh_ret = st.checkbox("Return Thigh Pads", value=True, key=f"thigh_ret_{idx}") if to_bool(existing.get("Thigh Pads")) else False
-                    tail_ret = st.checkbox("Return Tailbone Pad", value=True, key=f"tail_ret_{idx}") if to_bool(existing.get("Tailbone Pad")) else False
-                    knee_ret = st.checkbox("Return Knee Pads", value=True, key=f"knee_ret_{idx}") if to_bool(existing.get("Knee Pads")) else False
+                current_summary = " | ".join(rented_parts) if rented_parts else "Nothing currently rented"
 
-                if st.button("✅ Return Selected Equipment", key=f"return_btn_{idx}", type="primary"):
-                    new_row = existing.to_dict() if not existing.empty else {}
-                    if helmet_ret: new_row["Helmet"] = False
-                    if shoulder_ret: new_row["Shoulder Pads"] = False
-                    if pants_ret: new_row["Pants w/Belt"] = False
-                    if thigh_ret: new_row["Thigh Pads"] = False
-                    if tail_ret: new_row["Tailbone Pad"] = False
-                    if knee_ret: new_row["Knee Pads"] = False
-                    new_row["ReturnDate"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — Currently out: {current_summary}"):
+                    if not rented_parts:
+                        st.info("All equipment already returned.")
+                        continue
 
-                    equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
-                    equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        helmet_ret = st.checkbox("Return Helmet", value=True, key=f"helm_ret_{idx}") if to_bool(existing.get("Helmet")) else False
+                        shoulder_ret = st.checkbox("Return Shoulder Pads", value=True, key=f"shoul_ret_{idx}") if to_bool(existing.get("Shoulder Pads")) else False
+                        pants_ret = st.checkbox("Return Pants w/Belt", value=True, key=f"pants_ret_{idx}") if to_bool(existing.get("Pants w/Belt")) else False
+                    with col2:
+                        thigh_ret = st.checkbox("Return Thigh Pads", value=True, key=f"thigh_ret_{idx}") if to_bool(existing.get("Thigh Pads")) else False
+                        tail_ret = st.checkbox("Return Tailbone Pad", value=True, key=f"tail_ret_{idx}") if to_bool(existing.get("Tailbone Pad")) else False
+                        knee_ret = st.checkbox("Return Knee Pads", value=True, key=f"knee_ret_{idx}") if to_bool(existing.get("Knee Pads")) else False
 
-                    sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
-                    st.success(f"✅ Equipment returned for {player.get('First Name')} {player.get('Last Name')}")
-                    time.sleep(0.5)
-                    st.rerun()
+                    if st.button("✅ Return Selected Equipment", key=f"return_btn_{idx}", type="primary"):
+                        new_row = existing.to_dict() if not existing.empty else {}
+                        if helmet_ret: new_row["Helmet"] = False
+                        if shoulder_ret: new_row["Shoulder Pads"] = False
+                        if pants_ret: new_row["Pants w/Belt"] = False
+                        if thigh_ret: new_row["Thigh Pads"] = False
+                        if tail_ret: new_row["Tailbone Pad"] = False
+                        if knee_ret: new_row["Knee Pads"] = False
+                        new_row["ReturnDate"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+                        equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
+                        equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
+
+                        sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
+                        st.success(f"✅ Equipment returned for {player.get('First Name')} {player.get('Last Name')}")
+                        time.sleep(0.5)
+                        st.rerun()
