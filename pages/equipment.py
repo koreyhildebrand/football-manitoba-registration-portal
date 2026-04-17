@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Previous year info back in the summary line (red)."""
+    """Equipment page – Previous year info back in the summary line."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -102,16 +102,10 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if prev_sizes:
                 prev_text += f" ({', '.join(prev_sizes)})"
 
-            # Summary line with previous year inline (red)
-            summary_line = f"Weight: {current_weight} lbs | {current_rented} | <span style='color:red; font-weight:bold;'>{prev_text}</span>"
+            # Summary line with previous year inline
+            summary_line = f"Weight: {current_weight} lbs | {current_rented} | {prev_text}"
 
-            # Use plain text for the expander title (safe)
-            expander_title = f"**{player.get('First Name','')} {player.get('Last Name','')}** — Weight: {current_weight} lbs | {current_rented}"
-
-            with st.expander(expander_title):
-                # Red previous year info appears right at the top of the expander
-                st.markdown(f"<span style='color:red; font-weight:bold;'>{prev_text}</span>", unsafe_allow_html=True)
-
+            with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
                 col1, col2 = st.columns([3, 2])
                 with col1:
                     helmet = st.checkbox("Helmet", value=to_bool(existing.get("Helmet")), key=f"helm_r_{idx}")
