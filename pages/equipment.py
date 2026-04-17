@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Return page now only shows players with items checked out."""
+    """Equipment page – Return page now only shows players with items checked out (error fixed)."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -173,7 +173,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         rented_df = equipment_df.copy()
         rented_df = rented_df[rented_df.get("PlayerID", "").astype(str).str.strip() != ""]
 
-        # Only show not returned
         rented_df = rented_df[
             pd.isna(rented_df.get("ReturnDate")) | 
             (rented_df.get("ReturnDate", "").astype(str).str.strip() == "")
@@ -203,7 +202,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             else:
                 display['Rental Date'] = ""
 
-            # Top summary totals
             st.subheader("Total Equipment Currently Out")
             total_row = {
                 'Helmet': (display['Helmet'] == "✅").sum(),
@@ -215,7 +213,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             }
             st.dataframe(pd.DataFrame([total_row]), hide_index=True, use_container_width=True)
 
-            # Per-team totals
             st.subheader("Equipment by Team")
             team_totals = display.groupby('Team').agg({
                 'Helmet': lambda x: (x == "✅").sum(),
@@ -227,7 +224,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             }).reset_index()
             st.dataframe(team_totals, hide_index=True, use_container_width=True)
 
-            # Full table sorted by Team
             st.subheader("All Rented Equipment")
             st.dataframe(
                 display[['Player', 'Team', 'Helmet', 'Shoulder Pads', 'Pants w/Belt',
@@ -247,19 +243,20 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
         # Only show players who have at least one item currently checked out
         active_roster = roster.copy()
-        if not equipment_df.empty:
-            active_ids = equipment_df[
-                equipment_df.get("PlayerID", pd.Series([])).isin(roster['PlayerID']) &
-                (
-                    to_bool(equipment_df.get("Helmet")) |
-                    to_bool(equipment_df.get("Shoulder Pads")) |
-                    to_bool(equipment_df.get("Pants w/Belt")) |
-                    to_bool(equipment_df.get("Thigh Pads")) |
-                    to_bool(equipment_df.get("Tailbone Pad")) |
-                    to_bool(equipment_df.get("Knee Pads"))
-                )
-            ]['PlayerID'].unique()
+        if not equipment_df.empty and not roster.empty:
+            # Vectorized check for any rented item (fixes the ValueError)
+            cols = ['Helmet', 'Shoulder Pads', 'Pants w/Belt', 'Thigh Pads', 'Tailbone Pad', 'Knee Pads']
+            has_rented = pd.Series(False, index=equipment_df.index)
 
+            for col in cols:
+                if col in equipment_df.columns:
+                    has_rented = has_rented | equipment_df[col].apply(to_bool)
+
+            active_equipment = equipment_df[
+                equipment_df.get("PlayerID", pd.Series([])).isin(roster['PlayerID']) & has_rented
+            ]
+
+            active_ids = active_equipment['PlayerID'].unique()
             active_roster = roster[roster['PlayerID'].isin(active_ids)].copy()
 
         if active_roster.empty:
