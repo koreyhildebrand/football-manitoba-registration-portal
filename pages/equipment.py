@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Previous year info back in the summary line."""
+    """Equipment page – Previous year info now bold in the summary line."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -102,8 +102,8 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if prev_sizes:
                 prev_text += f" ({', '.join(prev_sizes)})"
 
-            # Summary line with previous year inline
-            summary_line = f"Weight: {current_weight} lbs | {current_rented} | {prev_text}"
+            # Summary line with previous year **bold**
+            summary_line = f"Weight: {current_weight} lbs | {current_rented} | **{prev_text}**"
 
             with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
                 col1, col2 = st.columns([3, 2])
