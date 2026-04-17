@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – All Players option + All Current Rentals sub-page (error fixed)."""
+    """Equipment page – All Players option + All Current Rentals (error fixed)."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -163,7 +163,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     time.sleep(0.5)
                     st.rerun()
 
-    # ====================== ALL CURRENT RENTALS SUBPAGE ======================
+    # ====================== ALL CURRENT RENTALS SUBPAGE (FIXED) ======================
     elif equip_sub == "All Rentals":
         st.subheader(f"📋 All Current Rentals")
 
@@ -175,23 +175,31 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         rented_df = rented_df[rented_df.get("PlayerID", "").astype(str).str.strip() != ""]
 
         if not rented_df.empty:
-            # Use full players_df for merge (so we get names even from previous years)
+            # Safe merge using full players_df
             display = rented_df.merge(
                 players_df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],
                 on='PlayerID', how='left'
             )
 
-            display['Player'] = display['First Name'].fillna("") + " " + display['Last Name'].fillna("")
-            display['Team'] = display.get('Team Assignment', "").fillna("—")
+            # Safe column creation
+            display['Player'] = (
+                display['First Name'].fillna("") + " " + 
+                display['Last Name'].fillna("")
+            ).str.strip()
 
-            # Build readable columns
-            display['Helmet'] = display.get('Helmet', False).apply(lambda x: "✅" if to_bool(x) else "")
-            display['Shoulder Pads'] = display.get('Shoulder Pads', False).apply(lambda x: "✅" if to_bool(x) else "")
-            display['Pants w/Belt'] = display.get('Pants w/Belt', False).apply(lambda x: "✅" if to_bool(x) else "")
-            display['Thigh Pads'] = display.get('Thigh Pads', False).apply(lambda x: "✅" if to_bool(x) else "")
-            display['Tailbone Pad'] = display.get('Tailbone Pad', False).apply(lambda x: "✅" if to_bool(x) else "")
-            display['Knee Pads'] = display.get('Knee Pads', False).apply(lambda x: "✅" if to_bool(x) else "")
-            display['Rental Date'] = display.get('RentalDate', "")
+            display['Team'] = display.get('Team Assignment', pd.Series(["—"]*len(display))).fillna("—")
+
+            # Create checkmark columns safely
+            for col in ['Helmet', 'Shoulder Pads', 'Pants w/Belt', 'Thigh Pads', 'Tailbone Pad', 'Knee Pads']:
+                if col in display.columns:
+                    display[col] = display[col].apply(lambda x: "✅" if to_bool(x) else "")
+                else:
+                    display[col] = ""
+
+            if 'RentalDate' in display.columns:
+                display['Rental Date'] = display['RentalDate']
+            else:
+                display['Rental Date'] = ""
 
             st.dataframe(
                 display[['Player', 'Team', 'Helmet', 'Shoulder Pads', 'Pants w/Belt',
