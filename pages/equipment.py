@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – All Players option + All Current Rentals sub-page."""
+    """Equipment page – All Players option + All Current Rentals sub-page (error fixed)."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -49,7 +49,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
     team_list = ["All Players"] + sorted(teams_df["TeamName"].dropna().unique().tolist())
     selected_team = st.selectbox("Select Team", team_list, key="equip_team_filter")
 
-    # Filter roster
     if selected_team == "All Players":
         roster = df[df.get("Team Assignment", "").notna() & (df.get("Team Assignment", "") != "")].copy()
     else:
@@ -166,42 +165,33 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
     # ====================== ALL CURRENT RENTALS SUBPAGE ======================
     elif equip_sub == "All Rentals":
-        st.subheader(f"📋 All Current Rentals ({selected_year} Season)")
+        st.subheader(f"📋 All Current Rentals")
 
         if st.button("🔄 Refresh All Rentals", type="primary", width='stretch'):
             st.cache_data.clear()
             st.rerun()
 
-        # Get only players who have at least one item rented
         rented_df = equipment_df.copy()
         rented_df = rented_df[rented_df.get("PlayerID", "").astype(str).str.strip() != ""]
 
-        # Merge with player info for nice display
         if not rented_df.empty:
+            # Use full players_df for merge (so we get names even from previous years)
             display = rented_df.merge(
-                df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],
+                players_df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],
                 on='PlayerID', how='left'
             )
 
-            # Build nice columns for display
-            display['Player'] = display['First Name'] + " " + display['Last Name']
-            display['Team'] = display['Team Assignment'].fillna("—")
+            display['Player'] = display['First Name'].fillna("") + " " + display['Last Name'].fillna("")
+            display['Team'] = display.get('Team Assignment', "").fillna("—")
 
-            cols_to_show = ['Player', 'Team']
-            if 'Helmet' in display.columns:
-                display['Helmet'] = display['Helmet'].apply(lambda x: "✅" if to_bool(x) else "")
-            if 'Shoulder Pads' in display.columns:
-                display['Shoulder Pads'] = display['Shoulder Pads'].apply(lambda x: "✅" if to_bool(x) else "")
-            if 'Pants w/Belt' in display.columns:
-                display['Pants w/Belt'] = display['Pants w/Belt'].apply(lambda x: "✅" if to_bool(x) else "")
-            if 'Thigh Pads' in display.columns:
-                display['Thigh Pads'] = display['Thigh Pads'].apply(lambda x: "✅" if to_bool(x) else "")
-            if 'Tailbone Pad' in display.columns:
-                display['Tailbone Pad'] = display['Tailbone Pad'].apply(lambda x: "✅" if to_bool(x) else "")
-            if 'Knee Pads' in display.columns:
-                display['Knee Pads'] = display['Knee Pads'].apply(lambda x: "✅" if to_bool(x) else "")
-            if 'RentalDate' in display.columns:
-                display['Rental Date'] = display['RentalDate']
+            # Build readable columns
+            display['Helmet'] = display.get('Helmet', False).apply(lambda x: "✅" if to_bool(x) else "")
+            display['Shoulder Pads'] = display.get('Shoulder Pads', False).apply(lambda x: "✅" if to_bool(x) else "")
+            display['Pants w/Belt'] = display.get('Pants w/Belt', False).apply(lambda x: "✅" if to_bool(x) else "")
+            display['Thigh Pads'] = display.get('Thigh Pads', False).apply(lambda x: "✅" if to_bool(x) else "")
+            display['Tailbone Pad'] = display.get('Tailbone Pad', False).apply(lambda x: "✅" if to_bool(x) else "")
+            display['Knee Pads'] = display.get('Knee Pads', False).apply(lambda x: "✅" if to_bool(x) else "")
+            display['Rental Date'] = display.get('RentalDate', "")
 
             st.dataframe(
                 display[['Player', 'Team', 'Helmet', 'Shoulder Pads', 'Pants w/Belt',
