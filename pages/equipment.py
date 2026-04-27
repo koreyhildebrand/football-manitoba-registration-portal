@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Save Rental now clears ReturnDate + dates inside dropdown."""
+    """Equipment page – All Current Rentals now filtered to selected year only."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -31,7 +31,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         st.session_state.equip_subpage = "Rental"
     equip_sub = st.session_state.equip_subpage
 
-    # ====================== FILTER PLAYERS BY YEAR ======================
+    # ====================== FILTER PLAYERS BY SELECTED YEAR ======================
     df = players_df.copy()
     df['PlayerID'] = (df['First Name'].astype(str).str.strip() + "_" +
                       df['Last Name'].astype(str).str.strip() + "_" +
@@ -68,7 +68,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
             current_weight = player.get("Weight", "N/A")
 
-            # ====================== PREVIOUS SEASON INFO ======================
+            # Previous season info
             prev_year = selected_year - 1
             prev_weight = "N/A"
             prev_sizes = []
@@ -82,7 +82,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                 prev_row = prev_players[(prev_players['PlayerID'] == player_id) & (prev_players['RegYear'] == prev_year)]
                 if not prev_row.empty:
                     prev_weight = prev_row.iloc[0].get("Weight", "N/A")
-
                     prev_equip = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
                     prev_equip = prev_equip[pd.to_datetime(prev_equip.get("RentalDate", ""), errors='coerce').dt.year == prev_year]
                     if not prev_equip.empty:
@@ -96,7 +95,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
             prev_text = "No Information Available" if prev_weight == "N/A" and not prev_sizes else f"Prev {prev_year}: {prev_weight} lbs" + (f" ({', '.join(prev_sizes)})" if prev_sizes else "")
 
-            # ====================== CURRENT SUMMARY ======================
+            # Current rented summary
             summary_parts = []
             if to_bool(existing.get("Helmet")): summary_parts.append("Helmet ✓")
             if to_bool(existing.get("Shoulder Pads")): summary_parts.append("Shoulder Pads ✓")
@@ -112,8 +111,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             summary_line = f"Weight: {current_weight} lbs | {current_rented} | **{prev_text}**"
 
             with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
-                
-                # Dates inside the dropdown
+                # Dates inside dropdown
                 rental_date = existing.get("RentalDate", "")
                 return_date = existing.get("ReturnDate", "")
                 st.markdown(f"**Rental Date:** {rental_date if rental_date else '—'}")
@@ -160,7 +158,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
                     waiver = st.checkbox("Parent Signed Waiver", value=to_bool(existing.get("Parent Signed Waiver")), key=f"waiver_r_{idx}")
 
-                # ====================== SAVE RENTAL (CLEARS RETURN DATE) ======================
+                # Save Rental (clears ReturnDate)
                 if st.button("💾 Save Rental for this Player", key=f"save_rental_{idx}", type="primary"):
                     new_row = {
                         "PlayerID": player_id,
@@ -173,12 +171,12 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                         "Mouth Guard": mouth_guard, "Belt": belt,
                         "Secured Rental": secured, "Parent Signed Waiver": waiver,
                         "RentalDate": existing.get("RentalDate") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "ReturnDate": ""   # ← CLEARS RETURN DATE ON SAVE
+                        "ReturnDate": ""   # ← CLEARS RETURN DATE
                     }
                     equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
                     equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
                     sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
-                    st.success(f"✅ Rental saved for {player.get('First Name')} {player.get('Last Name')} (ReturnDate cleared)")
+                    st.success(f"✅ Rental saved for {player.get('First Name')} {player.get('Last Name')}")
                     time.sleep(0.5)
                     st.rerun()
 
@@ -220,7 +218,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                         time.sleep(0.5)
                         st.rerun()
 
-    # ====================== ALL CURRENT RENTALS ======================
+    # ====================== ALL CURRENT RENTALS (NOW FILTERED TO SELECTED YEAR) ======================
     elif equip_sub == "All Rentals":
         st.subheader(f"📋 All Current Rentals")
         if st.button("🔄 Refresh All Rentals", type="primary", width='stretch'):
@@ -229,14 +227,17 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
         rented_df = equipment_df.copy()
         rented_df = rented_df[rented_df.get("PlayerID", "").astype(str).str.strip() != ""]
+
+        # Only active (not returned) rentals
         rented_df = rented_df[
             pd.isna(rented_df.get("ReturnDate")) | 
             (rented_df.get("ReturnDate", "").astype(str).str.strip() == "")
         ]
 
         if not rented_df.empty:
+            # Use year-filtered df so only current-year players appear
             display = rented_df.merge(
-                players_df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],
+                df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],  # ← changed to df
                 on='PlayerID', how='left'
             )
 
