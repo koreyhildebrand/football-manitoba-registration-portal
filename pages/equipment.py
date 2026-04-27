@@ -86,23 +86,14 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             last_rental_sizes = []
             last_equip = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
             if not last_equip.empty:
-                try:
-                    last_equip = last_equip.copy()
-                    # Safely convert RentalDate (handles missing column or bad dates)
-                    if 'RentalDate' in last_equip.columns:
-                        last_equip['RentalDate'] = pd.to_datetime(last_equip['RentalDate'], errors='coerce')
-                        last_equip = last_equip.sort_values('RentalDate', ascending=False).iloc[0]
-                    else:
-                        last_equip = last_equip.iloc[0]  # fallback if no date column
-
-                    if to_bool(last_equip.get("Helmet")):
-                        last_rental_sizes.append(f"Helmet {last_equip.get('Helmet Size', '—')}")
-                    if to_bool(last_equip.get("Shoulder Pads")):
-                        last_rental_sizes.append(f"Shoulder {last_equip.get('Shoulder Pads Size', '—')}")
-                    if to_bool(last_equip.get("Pants")):
-                        last_rental_sizes.append(f"Pants {last_equip.get('Pants Size', '—')}")
-                except:
-                    pass  # if anything fails, just show no info
+                # Take the most recent row in the sheet for this player
+                last_row = last_equip.iloc[-1]   # last row = most recent
+                if to_bool(last_row.get("Helmet")):
+                    last_rental_sizes.append(f"Helmet {last_row.get('Helmet Size', '—')}")
+                if to_bool(last_row.get("Shoulder Pads")):
+                    last_rental_sizes.append(f"Shoulder {last_row.get('Shoulder Pads Size', '—')}")
+                if to_bool(last_row.get("Pants")):
+                    last_rental_sizes.append(f"Pants {last_row.get('Pants Size', '—')}")
 
             # Build previous info text
             if prev_weight == "N/A" and not last_rental_sizes:
