@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Last rental sizes now reliably shown next to previous year weight."""
+    """Equipment page – Last rental sizes now safely shown next to previous year weight."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -82,12 +82,14 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                 if not prev_row.empty:
                     prev_weight = prev_row.iloc[0].get("Weight", "N/A")
 
-            # ====================== LAST RENTAL SIZES (most recent rental ever) ======================
+            # ====================== LAST RENTAL SIZES (safely handled) ======================
             last_rental_sizes = []
             last_equip = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
             if not last_equip.empty:
-                # Sort by RentalDate descending to get the most recent rental record
-                last_equip = last_equip.sort_values('RentalDate', ascending=False, errors='coerce').iloc[0]
+                # Safely convert date and sort
+                last_equip = last_equip.copy()
+                last_equip['RentalDate'] = pd.to_datetime(last_equip['RentalDate'], errors='coerce')
+                last_equip = last_equip.sort_values('RentalDate', ascending=False).iloc[0]
                 if to_bool(last_equip.get("Helmet")):
                     last_rental_sizes.append(f"Helmet {last_equip.get('Helmet Size', '—')}")
                 if to_bool(last_equip.get("Shoulder Pads")):
@@ -127,7 +129,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                 if return_date:
                     st.markdown(f"**Return Date:** {return_date}")
 
-                # Rental form (unchanged)
+                # Rental form
                 col1, col2 = st.columns([3, 2])
                 with col1:
                     helmet = st.checkbox("Helmet", value=to_bool(existing.get("Helmet")), key=f"helm_r_{idx}")
