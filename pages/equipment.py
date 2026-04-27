@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Hip Pads moved directly under Thigh Pads in Rental form."""
+    """Equipment page – Return functionality merged into Rental page + dates in player box."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -18,15 +18,12 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         key="equip_year"
     )
 
-    # ====================== SUB-PAGE BUTTONS ======================
-    col1, col2, col3 = st.columns(3)
+    # ====================== SUB-PAGE BUTTONS (Return page removed) ======================
+    col1, col2 = st.columns(2)
     with col1:
         if st.button("📦 Rental (Checkout)", type="primary", width='stretch'):
             st.session_state.equip_subpage = "Rental"
     with col2:
-        if st.button("🔄 Return (Check-in)", type="primary", width='stretch'):
-            st.session_state.equip_subpage = "Return"
-    with col3:
         if st.button("📋 All Current Rentals", type="primary", width='stretch'):
             st.session_state.equip_subpage = "All Rentals"
 
@@ -57,10 +54,10 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
     # ====================== EQUIPMENT DATA ======================
     equipment_df = get_live_equipment()
 
-    # ====================== RENTAL SUBPAGE ======================
+    # ====================== RENTAL SUBPAGE (now includes Return) ======================
     if equip_sub == "Rental":
-        st.subheader(f"📦 Rental – {selected_team} ({selected_year} Season)")
-        if st.button("🔄 Refresh Rental List", type="primary", width='stretch'):
+        st.subheader(f"📦 Rental / Return – {selected_team} ({selected_year} Season)")
+        if st.button("🔄 Refresh List", type="primary", width='stretch'):
             st.cache_data.clear()
             st.rerun()
 
@@ -71,6 +68,14 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
             current_weight = player.get("Weight", "N/A")
 
+            # ====================== DATES FOR SUMMARY BOX ======================
+            rental_date = existing.get("RentalDate", "")
+            return_date = existing.get("ReturnDate", "")
+            date_info = f"Rented: {rental_date if rental_date else '—'}"
+            if return_date:
+                date_info += f" | Returned: {return_date}"
+
+            # ====================== CURRENT RENTED SUMMARY ======================
             summary_parts = []
             if to_bool(existing.get("Helmet")): summary_parts.append("Helmet ✓")
             if to_bool(existing.get("Shoulder Pads")): summary_parts.append("Shoulder Pads ✓")
@@ -83,29 +88,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
             if to_bool(existing.get("Belt")): summary_parts.append("Belt ✓")
             current_rented = " | ".join(summary_parts) if summary_parts else "No equipment rented yet"
 
-            prev_year = selected_year - 1
-            prev_weight = "N/A"
-            prev_sizes = []
-            prev_players = players_df.copy()
-            prev_players['PlayerID'] = (prev_players['First Name'].astype(str).str.strip() + "_" +
-                                       prev_players['Last Name'].astype(str).str.strip() + "_" +
-                                       prev_players['Birthdate'].astype(str).str.strip())
-            if 'Timestamp' in prev_players.columns:
-                prev_players['RegYear'] = pd.to_datetime(prev_players['Timestamp'], errors='coerce').dt.year
-                prev_row = prev_players[(prev_players['PlayerID'] == player_id) & (prev_players['RegYear'] == prev_year)]
-                if not prev_row.empty:
-                    prev_weight = prev_row.iloc[0].get("Weight", "N/A")
-            if to_bool(existing.get("Helmet")):
-                prev_sizes.append(f"Helmet {existing.get('Helmet Size', '—')}")
-            if to_bool(existing.get("Shoulder Pads")):
-                prev_sizes.append(f"Shoulder {existing.get('Shoulder Pads Size', '—')}")
-            if to_bool(existing.get("Pants")):
-                prev_sizes.append(f"Pants {existing.get('Pants Size', '—')}")
-            prev_text = f"Prev {prev_year}: {prev_weight} lbs"
-            if prev_sizes:
-                prev_text += f" ({', '.join(prev_sizes)})"
-
-            summary_line = f"Weight: {current_weight} lbs | {current_rented} | **{prev_text}**"
+            summary_line = f"Weight: {current_weight} lbs | {current_rented} | **{date_info}**"
 
             with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
                 col1, col2 = st.columns([3, 2])
@@ -142,52 +125,35 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                         pants_size = ""
 
                 with col2:
-                    # Thigh Pads
                     thigh = st.checkbox("Thigh Pads", value=to_bool(existing.get("Thigh Pads")), key=f"thigh_r_{idx}")
-                    # Hip Pads moved directly under Thigh Pads
                     hip_pads = st.checkbox("Hip Pads", value=to_bool(existing.get("Hip Pads")), key=f"hip_r_{idx}")
-
                     tailbone = st.checkbox("Tailbone Pad", value=to_bool(existing.get("Tailbone Pad")), key=f"tail_r_{idx}")
                     knee = st.checkbox("Knee Pads", value=to_bool(existing.get("Knee Pads")), key=f"knee_r_{idx}")
-
-                    # Remaining checkboxes
                     mouth_guard = st.checkbox("Mouth Guard", value=to_bool(existing.get("Mouth Guard")), key=f"mouth_r_{idx}")
                     belt = st.checkbox("Belt", value=to_bool(existing.get("Belt")), key=f"belt_r_{idx}")
 
-                    # Secured Rental
                     secured_options = ["Cheque", "Credit Card", "Cash", "Debit"]
                     secured_default = existing.get("Secured Rental", "Cheque")
                     if secured_default not in secured_options:
                         secured_default = "Cheque"
                     secured = st.radio("Rental Secured by", secured_options, index=secured_options.index(secured_default), key=f"sec_r_{idx}")
 
-                    # Waiver
                     waiver = st.checkbox("Parent Signed Waiver", value=to_bool(existing.get("Parent Signed Waiver")), key=f"waiver_r_{idx}")
 
+                # ====================== SAVE RENTAL ======================
                 if st.button("💾 Save Rental for this Player", key=f"save_rental_{idx}", type="primary"):
                     new_row = {
                         "PlayerID": player_id,
                         "First Name": player.get("First Name", ""),
                         "Last Name": player.get("Last Name", ""),
-                        "Helmet": helmet,
-                        "Helmet Type": helmet_type if helmet else "",
-                        "Helmet Year": helmet_year if helmet else "",
-                        "Helmet Size": helmet_size if helmet else "",
-                        "Shoulder Pads": shoulder,
-                        "Shoulder Pads Type": shoulder_type if shoulder else "",
-                        "Shoulder Pads Size": shoulder_size if shoulder else "",
-                        "Pants": pants,
-                        "Pants Size": pants_size if pants else "",
-                        "Thigh Pads": thigh,
-                        "Hip Pads": hip_pads,
-                        "Tailbone Pad": tailbone,
-                        "Knee Pads": knee,
-                        "Mouth Guard": mouth_guard,
-                        "Belt": belt,
-                        "Secured Rental": secured,
-                        "Parent Signed Waiver": waiver,
-                        "RentalDate": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "ReturnDate": ""
+                        "Helmet": helmet, "Helmet Type": helmet_type if helmet else "", "Helmet Year": helmet_year if helmet else "", "Helmet Size": helmet_size if helmet else "",
+                        "Shoulder Pads": shoulder, "Shoulder Pads Type": shoulder_type if shoulder else "", "Shoulder Pads Size": shoulder_size if shoulder else "",
+                        "Pants": pants, "Pants Size": pants_size if pants else "",
+                        "Thigh Pads": thigh, "Hip Pads": hip_pads, "Tailbone Pad": tailbone, "Knee Pads": knee,
+                        "Mouth Guard": mouth_guard, "Belt": belt,
+                        "Secured Rental": secured, "Parent Signed Waiver": waiver,
+                        "RentalDate": existing.get("RentalDate") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "ReturnDate": existing.get("ReturnDate", "")
                     }
                     equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
                     equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
@@ -196,11 +162,86 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     time.sleep(0.5)
                     st.rerun()
 
-    # ====================== ALL CURRENT RENTALS & RETURN SUBPAGES (unchanged) ======================
+                # ====================== RETURN SECTION (only if equipment is out) ======================
+                has_active_rental = any(to_bool(existing.get(col)) for col in ["Helmet","Shoulder Pads","Pants","Thigh Pads","Hip Pads","Tailbone Pad","Knee Pads","Mouth Guard","Belt"])
+                if has_active_rental and not return_date:
+                    st.markdown("---")
+                    st.subheader("🔄 Return Equipment")
+                    col_ret1, col_ret2 = st.columns(2)
+                    with col_ret1:
+                        helmet_ret = st.checkbox("Return Helmet", value=True, key=f"helm_ret_{idx}") if to_bool(existing.get("Helmet")) else False
+                        shoulder_ret = st.checkbox("Return Shoulder Pads", value=True, key=f"shoul_ret_{idx}") if to_bool(existing.get("Shoulder Pads")) else False
+                        pants_ret = st.checkbox("Return Pants", value=True, key=f"pants_ret_{idx}") if to_bool(existing.get("Pants")) else False
+                    with col_ret2:
+                        thigh_ret = st.checkbox("Return Thigh Pads", value=True, key=f"thigh_ret_{idx}") if to_bool(existing.get("Thigh Pads")) else False
+                        hip_ret = st.checkbox("Return Hip Pads", value=True, key=f"hip_ret_{idx}") if to_bool(existing.get("Hip Pads")) else False
+                        tail_ret = st.checkbox("Return Tailbone Pad", value=True, key=f"tail_ret_{idx}") if to_bool(existing.get("Tailbone Pad")) else False
+                        knee_ret = st.checkbox("Return Knee Pads", value=True, key=f"knee_ret_{idx}") if to_bool(existing.get("Knee Pads")) else False
+                        mouth_ret = st.checkbox("Return Mouth Guard", value=True, key=f"mouth_ret_{idx}") if to_bool(existing.get("Mouth Guard")) else False
+                        belt_ret = st.checkbox("Return Belt", value=True, key=f"belt_ret_{idx}") if to_bool(existing.get("Belt")) else False
+
+                    if st.button("✅ Return Selected Equipment", key=f"return_btn_{idx}", type="primary"):
+                        new_row = existing.to_dict() if not existing.empty else {}
+                        if helmet_ret: new_row["Helmet"] = False
+                        if shoulder_ret: new_row["Shoulder Pads"] = False
+                        if pants_ret: new_row["Pants"] = False
+                        if thigh_ret: new_row["Thigh Pads"] = False
+                        if hip_ret: new_row["Hip Pads"] = False
+                        if tail_ret: new_row["Tailbone Pad"] = False
+                        if knee_ret: new_row["Knee Pads"] = False
+                        if mouth_ret: new_row["Mouth Guard"] = False
+                        if belt_ret: new_row["Belt"] = False
+                        new_row["ReturnDate"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+                        equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
+                        equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
+                        sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
+                        st.success(f"✅ Equipment returned for {player.get('First Name')} {player.get('Last Name')}")
+                        time.sleep(0.5)
+                        st.rerun()
+
+    # ====================== ALL CURRENT RENTALS SUBPAGE ======================
     elif equip_sub == "All Rentals":
-        st.info("All Current Rentals page is unchanged.")
-    else:
-        st.subheader(f"🔄 Return – {selected_team} ({selected_year} Season)")
-        st.info("Return page is unchanged.")
+        st.subheader(f"📋 All Current Rentals")
+        if st.button("🔄 Refresh All Rentals", type="primary", width='stretch'):
+            st.cache_data.clear()
+            st.rerun()
+
+        rented_df = equipment_df.copy()
+        rented_df = rented_df[rented_df.get("PlayerID", "").astype(str).str.strip() != ""]
+        rented_df = rented_df[pd.isna(rented_df.get("ReturnDate")) | (rented_df.get("ReturnDate", "").astype(str).str.strip() == "")]
+
+        if not rented_df.empty:
+            display = rented_df.merge(df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']], on='PlayerID', how='left')
+            first = display.get('First Name', pd.Series([""] * len(display))).fillna("")
+            last  = display.get('Last Name',  pd.Series([""] * len(display))).fillna("")
+            display['Player'] = (first + " " + last).str.strip()
+            display['Player'] = display['Player'].where(display['Player'] != "", display.get('PlayerID', "Unknown Player"))
+            display['Team'] = display.get('Team Assignment', pd.Series(["—"] * len(display))).fillna("—")
+
+            for col in ['Helmet', 'Shoulder Pads', 'Pants', 'Thigh Pads', 'Hip Pads', 'Tailbone Pad', 'Knee Pads', 'Mouth Guard', 'Belt']:
+                if col in display.columns:
+                    display[col] = display[col].apply(lambda x: "✅" if to_bool(x) else "")
+                else:
+                    display[col] = ""
+
+            if 'RentalDate' in display.columns:
+                display['Rental Date'] = display['RentalDate']
+            else:
+                display['Rental Date'] = ""
+
+            st.subheader("Total Equipment Currently Out")
+            total_row = {col: (display[col] == "✅").sum() for col in ['Helmet', 'Shoulder Pads', 'Pants', 'Thigh Pads', 'Hip Pads', 'Tailbone Pad', 'Knee Pads', 'Mouth Guard', 'Belt']}
+            st.dataframe(pd.DataFrame([total_row]), hide_index=True, use_container_width=True)
+
+            st.subheader("Equipment by Team")
+            team_totals = display.groupby('Team').agg({col: lambda x: (x == "✅").sum() for col in ['Helmet', 'Shoulder Pads', 'Pants', 'Thigh Pads', 'Hip Pads', 'Tailbone Pad', 'Knee Pads', 'Mouth Guard', 'Belt']}).reset_index()
+            st.dataframe(team_totals, hide_index=True, use_container_width=True)
+
+            st.subheader("All Rented Equipment")
+            st.dataframe(display[['Player', 'Team', 'Helmet', 'Shoulder Pads', 'Pants', 'Thigh Pads', 'Hip Pads', 'Tailbone Pad', 'Knee Pads', 'Mouth Guard', 'Belt', 'Rental Date']].sort_values('Team'),
+                         use_container_width=True, hide_index=True)
+        else:
+            st.info("No equipment is currently rented out.")
 
     st.caption(f"✅ St. Vital Mustangs Registration Portal | v4.00")
