@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Rented/Returned dates moved INSIDE the dropdown box."""
+    """Equipment page – Save Rental now clears ReturnDate + dates inside dropdown."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -96,7 +96,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
             prev_text = "No Information Available" if prev_weight == "N/A" and not prev_sizes else f"Prev {prev_year}: {prev_weight} lbs" + (f" ({', '.join(prev_sizes)})" if prev_sizes else "")
 
-            # ====================== CURRENT RENTED SUMMARY (no dates here) ======================
+            # ====================== CURRENT SUMMARY ======================
             summary_parts = []
             if to_bool(existing.get("Helmet")): summary_parts.append("Helmet ✓")
             if to_bool(existing.get("Shoulder Pads")): summary_parts.append("Shoulder Pads ✓")
@@ -113,7 +113,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
             with st.expander(f"**{player.get('First Name','')} {player.get('Last Name','')}** — {summary_line}"):
                 
-                # ====================== DATES NOW INSIDE THE DROPDOWN ======================
+                # Dates inside the dropdown
                 rental_date = existing.get("RentalDate", "")
                 return_date = existing.get("ReturnDate", "")
                 st.markdown(f"**Rental Date:** {rental_date if rental_date else '—'}")
@@ -160,7 +160,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
                     waiver = st.checkbox("Parent Signed Waiver", value=to_bool(existing.get("Parent Signed Waiver")), key=f"waiver_r_{idx}")
 
-                # Save Rental
+                # ====================== SAVE RENTAL (CLEARS RETURN DATE) ======================
                 if st.button("💾 Save Rental for this Player", key=f"save_rental_{idx}", type="primary"):
                     new_row = {
                         "PlayerID": player_id,
@@ -173,12 +173,12 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                         "Mouth Guard": mouth_guard, "Belt": belt,
                         "Secured Rental": secured, "Parent Signed Waiver": waiver,
                         "RentalDate": existing.get("RentalDate") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "ReturnDate": existing.get("ReturnDate", "")
+                        "ReturnDate": ""   # ← CLEARS RETURN DATE ON SAVE
                     }
                     equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
                     equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
                     sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
-                    st.success(f"✅ Rental saved for {player.get('First Name')} {player.get('Last Name')}")
+                    st.success(f"✅ Rental saved for {player.get('First Name')} {player.get('Last Name')} (ReturnDate cleared)")
                     time.sleep(0.5)
                     st.rerun()
 
