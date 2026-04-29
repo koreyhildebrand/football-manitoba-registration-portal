@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Last rental sizes now reliably shown (even if returned)."""
+    """Equipment page – Last rental sizes now always show (even after return)."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -84,14 +84,13 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
             # ====================== LAST RENTAL SIZES (most recent rental EVER) ======================
             last_rental_sizes = []
-            last_rental_date = ""
             last_equip = equipment_df[equipment_df.get("PlayerID", pd.Series([])) == player_id]
             if not last_equip.empty:
                 last_equip = last_equip.copy()
                 if 'RentalDate' in last_equip.columns:
                     last_equip['RentalDate'] = pd.to_datetime(last_equip['RentalDate'], errors='coerce')
                     last_equip = last_equip.sort_values('RentalDate', ascending=False)
-                last_row = last_equip.iloc[0]   # most recent rental record (returned or not)
+                last_row = last_equip.iloc[0]  # most recent rental record (returned or not)
 
                 if to_bool(last_row.get("Helmet")):
                     last_rental_sizes.append(f"Helmet {last_row.get('Helmet Size', '—')}")
@@ -99,8 +98,6 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     last_rental_sizes.append(f"Shoulder {last_row.get('Shoulder Pads Size', '—')}")
                 if to_bool(last_row.get("Pants")):
                     last_rental_sizes.append(f"Pants {last_row.get('Pants Size', '—')}")
-
-                last_rental_date = last_row.get('RentalDate', "")
 
             # Build previous info text
             if prev_weight == "N/A" and not last_rental_sizes:
