@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – All Current Rentals now strictly limited to selected year."""
+    """Equipment page – Mouth Guard is now automatically cleared on any return."""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -31,7 +31,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         st.session_state.equip_subpage = "Rental"
     equip_sub = st.session_state.equip_subpage
 
-    # ====================== FILTER PLAYERS BY SELECTED YEAR ======================
+    # ====================== FILTER PLAYERS BY YEAR ======================
     df = players_df.copy()
     df['PlayerID'] = (df['First Name'].astype(str).str.strip() + "_" +
                       df['Last Name'].astype(str).str.strip() + "_" +
@@ -211,7 +211,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     time.sleep(0.5)
                     st.rerun()
 
-                # Return section
+                # ====================== RETURN SECTION ======================
                 has_active_rental = any(to_bool(existing.get(col)) for col in ["Helmet","Shoulder Pads","Pants","Thigh Pads","Hip Pads","Tailbone Pad","Knee Pads","Mouth Guard","Belt","Practice Jersey Red","Practice Jersey Black","Practice Jersey White"])
                 if has_active_rental and not return_date:
                     st.markdown("---")
@@ -244,6 +244,10 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                         if red_ret: new_row["Practice Jersey Red"] = False
                         if black_ret: new_row["Practice Jersey Black"] = False
                         if white_ret: new_row["Practice Jersey White"] = False
+                        
+                        # 🔥 NEW: Automatically clear Mouth Guard on any return
+                        new_row["Mouth Guard"] = False
+
                         new_row["ReturnDate"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
                         equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
@@ -253,7 +257,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                         time.sleep(0.5)
                         st.rerun()
 
-    # ====================== ALL CURRENT RENTALS (strictly filtered to selected year) ======================
+    # ====================== ALL CURRENT RENTALS ======================
     elif equip_sub == "All Rentals":
         st.subheader(f"📋 All Current Rentals")
         if st.button("🔄 Refresh All Rentals", type="primary"):
@@ -268,9 +272,8 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         ]
 
         if not rented_df.empty:
-            # Use the year-filtered df (only current-year players)
             display = rented_df.merge(
-                df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],  # ← fixed here
+                df[['PlayerID', 'First Name', 'Last Name', 'Team Assignment']],
                 on='PlayerID', how='left'
             )
 
