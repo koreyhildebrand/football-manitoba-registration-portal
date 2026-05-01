@@ -72,18 +72,17 @@ if st.session_state.get('authentication_status') is True:
 
     st.sidebar.markdown("---")
 
-    if (is_admin or is_registrar) and st.sidebar.button("📋 Registrar", width='stretch'):
-        st.session_state.page = "Registrar"
-    if (is_admin or is_equipment_role) and st.sidebar.button("🛡️ Equipment", width='stretch'):
-        st.session_state.page = "Equipment"
-    if can_restricted and st.sidebar.button("🔒 Restricted Health", width='stretch'):
-        st.session_state.page = "Restricted Health"
-    if (is_admin or is_registrar or is_coach) and st.sidebar.button("🏕️ Events", width='stretch'):
-        st.session_state.page = "Events"
+    # ====================== NEW SIDEBAR ORDER ======================
     if (is_coach or is_admin) and st.sidebar.button("🏈 Coach Portal", width='stretch'):
         st.session_state.page = "Coach Portal"
-
-    # Football Operations button has been removed
+    if (is_admin or is_registrar or is_coach) and st.sidebar.button("🏕️ Events", width='stretch'):
+        st.session_state.page = "Events"
+    if (is_admin or is_equipment_role) and st.sidebar.button("🛡️ Equipment", width='stretch'):
+        st.session_state.page = "Equipment"
+    if (is_admin or is_registrar) and st.sidebar.button("📋 Registrar", width='stretch'):
+        st.session_state.page = "Registrar"
+    if can_restricted and st.sidebar.button("🔒 Restricted Health", width='stretch'):
+        st.session_state.page = "Restricted Health"
 
     if "page" not in st.session_state:
         st.session_state.page = "Landing"
