@@ -47,14 +47,17 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, she
         col1, col2 = st.columns(2)
         with col1:
             if st.button("✅ Yes, Clear Previous Years Health Data", type="primary"):
-                # Clear only health columns for previous years
+                # Make a copy to modify
                 players_to_update = players_df.copy()
+
                 if 'Timestamp' in players_to_update.columns:
                     players_to_update['RegYear'] = pd.to_datetime(players_to_update['Timestamp'], errors='coerce').dt.year
                     prev_year_mask = players_to_update['RegYear'] < current_year
-                    
+
+                    # Safely convert health columns to object/string type first
                     for col in health_columns:
                         if col in players_to_update.columns:
+                            players_to_update[col] = players_to_update[col].astype(object)
                             players_to_update.loc[prev_year_mask, col] = ""
 
                 # Write back to sheet
