@@ -4,7 +4,7 @@ import datetime
 from utils.helpers import calculate_age_group, filter_by_team
 
 
-def show_registrar(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet, events_df: pd.DataFrame, can_see_all_teams: bool, allowed_teams: list):
+def show_registrar(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet, can_see_all_teams: bool, allowed_teams: list):
     """Registrar page – Refresh button added to Dashboard tab."""
     st.header("📋 Registrar")
 
