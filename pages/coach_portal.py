@@ -7,19 +7,14 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
     st.header("🏈 Coach Portal")
     st.subheader(f"Welcome, {name}")
 
-    # ====================== YEAR SELECTOR ======================
-    selected_year = st.selectbox(
-        "Select Season Year",
-        [2024, 2025, 2026, 2027],
-        index=2,
-        key="coach_year_select"
-    )
+    # ====================== CURRENT YEAR (hard-coded to 2026) ======================
+    CURRENT_YEAR = 2026   # ← Change this number if you ever want to update the "current" season
 
     if st.button("🔄 Refresh My Teams", type="primary", width='stretch'):
         st.cache_data.clear()
         st.rerun()
 
-    # ====================== FILTER PLAYERS BY SELECTED YEAR ======================
+    # ====================== FILTER PLAYERS TO CURRENT YEAR ONLY ======================
     df = players_df.copy()
     df['PlayerID'] = (df['First Name'].astype(str).str.strip() + "_" +
                       df['Last Name'].astype(str).str.strip() + "_" +
@@ -27,28 +22,22 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
 
     if 'Timestamp' in df.columns:
         df['RegYear'] = pd.to_datetime(df['Timestamp'], errors='coerce').dt.year
-        df = df[df['RegYear'] == selected_year]
+        df = df[df['RegYear'] == CURRENT_YEAR]
         df = df.sort_values('Timestamp', ascending=False).drop_duplicates(subset='PlayerID', keep='first')
 
-    # ====================== MY TEAMS – ONLY FOR SELECTED YEAR ======================
+    # ====================== MY TEAMS (only current year) ======================
     if is_admin:
-        # Admin sees all teams that have players in the selected year
-        active_teams = df["Team Assignment"].dropna().unique().tolist()
-        my_teams = sorted([t for t in active_teams if t])
+        my_teams = sorted(df["Team Assignment"].dropna().unique().tolist())
     else:
-        # Coach only sees teams they coach that have players in the selected year
-        coached_teams_all_years = teams_df[
+        # Only teams this coach is assigned to in the current year
+        coached_teams = teams_df[
             teams_df.get("Coach", "").str.contains(name, case=False, na=False)
         ]["TeamName"].tolist()
-
-        # Only keep teams that actually have players in the selected year
-        my_teams = [
-            team for team in coached_teams_all_years
-            if team in df["Team Assignment"].values
-        ]
+        
+        my_teams = [team for team in coached_teams if team in df["Team Assignment"].values]
 
     if not my_teams:
-        st.warning(f"You are not currently assigned as coach to any team in the {selected_year} season.")
+        st.warning(f"You are not currently assigned as coach to any team in the {CURRENT_YEAR} season.")
         return
 
     selected_team = st.selectbox("Select Team to View", sorted(my_teams), key="coach_team_select")
@@ -100,4 +89,4 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
     if not alerts_found:
         st.success("No medical alerts for this team.")
 
-    st.caption(f"✅ Coach Portal – {selected_year} Season")
+    st.caption(f"✅ Coach Portal – {CURRENT_YEAR} Season Only")
