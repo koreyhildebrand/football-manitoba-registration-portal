@@ -107,7 +107,7 @@ if st.session_state.get('authentication_status') is True:
         show_restricted_health(players_df, teams_df, can_see_all_teams, allowed_teams)
     elif page == "Events":
         from pages.events import show_events
-        show_events(events_df, events_reg_df, sheet, filter_by_team, can_see_all_teams, allowed_teams)
+        show_events(sheet)                          # ←←← ONLY THIS LINE CHANGED
     elif page == "Football Operations":
         from pages.football_operations import show_football_operations
         show_football_operations(teams_df, sheet, is_admin)
