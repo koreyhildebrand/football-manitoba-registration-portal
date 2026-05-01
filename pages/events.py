@@ -1,57 +1,67 @@
 import streamlit as st
 import pandas as pd
-import datetime
+from utils.sheets import get_worksheet_data
 
 
-def show_events(events_df: pd.DataFrame, events_reg_df: pd.DataFrame, sheet, filter_by_team_func, can_see_all_teams: bool, allowed_teams: list):
-    st.header("🏕️ Events – Registered Participants & Check-In")
+def show_events(sheet):
+    """Events / Check-In Page – Clean view with Player Name, Session, and CheckIn checkbox."""
+    st.header("📅 Events & Check-In")
 
-    if st.button("🔄 Refresh Events & Registrations", type="primary", width='stretch'):
-        st.cache_data.clear()
-        st.rerun()
+    # ====================== CHANGE THIS IF YOUR WORKSHEET HAS A DIFFERENT NAME ======================
+    WORKSHEET_NAME = "Orders"          # ←←← Change this if needed (e.g. "Shopify Orders", "Event Orders")
+    # ===============================================================================================
 
-    df_filtered = filter_by_team_func(events_reg_df.copy(), can_see_all_teams, allowed_teams)
+    df = get_worksheet_data(WORKSHEET_NAME)
 
-    event_name_col = next((col for col in ["EventName", "Name", "Event"] if col in events_df.columns), None)
-    if not events_df.empty and event_name_col:
-        event_list = events_df[event_name_col].dropna().unique().tolist()
-        if event_list:
-            selected_event = st.selectbox("Select Event", event_list, key="event_selector")
-            if selected_event:
-                reg_event_col = next((col for col in ["EventName", "Name", "Event"] if col in df_filtered.columns), None)
-                filtered_reg = df_filtered[df_filtered[reg_event_col] == selected_event].copy() if reg_event_col else df_filtered.copy()
+    if df.empty:
+        st.warning(f"No data found in worksheet '{WORKSHEET_NAME}'")
+        return
 
-                if not filtered_reg.empty:
-                    st.subheader(f"Registrations for: {selected_event}")
-                    if "CheckIn" not in filtered_reg.columns:
-                        filtered_reg["CheckIn"] = False
-                    if "CheckInTime" not in filtered_reg.columns:
-                        filtered_reg["CheckInTime"] = ""
+    # Rename columns for clean display
+    rename_map = {
+        "Product Form: Player Name": "Player Name",
+        "Lineitem name": "Session"
+    }
+    df = df.rename(columns=rename_map)
 
-                    name_col = next((col for col in ["First Name", "Last Name", "Name", "Player Name"] if col in filtered_reg.columns), None)
-                    if name_col and "First Name" in filtered_reg.columns and "Last Name" in filtered_reg.columns:
-                        filtered_reg["Player Name"] = filtered_reg["First Name"].astype(str) + " " + filtered_reg["Last Name"].astype(str)
+    # Keep only the columns we want + add Checked In if missing
+    display_cols = ["Player Name", "Session"]
+    if "Checked In" not in df.columns:
+        df["Checked In"] = False
 
-                    edited_reg = st.data_editor(
-                        filtered_reg,
-                        num_rows="dynamic",
-                        width='stretch',
-                        column_config={
-                            "CheckIn": st.column_config.CheckboxColumn("Checked In", default=False, width="small"),
-                            "CheckInTime": st.column_config.TextColumn("Check-In Time", disabled=True)
-                        },
-                        key="events_checkin_editor"
-                    )
+    # Reorder and keep only what we need for the editor
+    df_display = df[display_cols + ["Checked In"]].copy()
 
-                    if st.button("💾 Save Check-In Changes", type="primary"):
-                        for i, row in edited_reg.iterrows():
-                            if row.get("CheckIn") is True and not row.get("CheckInTime"):
-                                edited_reg.at[i, "CheckInTime"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-                        sheet.worksheet("EventsRegistration").update([edited_reg.columns.values.tolist()] + edited_reg.fillna("").values.tolist())
-                        st.success("✅ Check-in data saved!")
-                else:
-                    st.info(f"No registrations yet for '{selected_event}'.")
-        else:
-            st.info("No events have been created yet.")
-    else:
-        st.warning("No events found. Please create events in Registrar → Event Creation first.")
+    st.subheader("Check-In Table")
+
+    # Interactive editor
+    edited_df = st.data_editor(
+        df_display,
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Player Name": st.column_config.TextColumn("Player Name", disabled=True),
+            "Session": st.column_config.TextColumn("Session", disabled=True),
+            "Checked In": st.column_config.CheckboxColumn("Checked In", default=False),
+        },
+        num_rows="fixed"
+    )
+
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("💾 Save Check-ins", type="primary"):
+            # Merge the edited Checked In values back into the original dataframe
+            df["Checked In"] = edited_df["Checked In"]
+
+            # Write back to Google Sheet
+            worksheet = sheet.worksheet(WORKSHEET_NAME)
+            worksheet.update([df.columns.values.tolist()] + df.fillna("").values.tolist())
+
+            st.success("✅ Check-ins saved successfully!")
+            st.rerun()
+
+    st.caption(f"✅ Showing data from worksheet: **{WORKSHEET_NAME}**")
+
+    # Optional: show raw data for debugging
+    with st.expander("🔍 Show full raw data (for debugging)"):
+        st.dataframe(df, use_container_width=True)
