@@ -14,6 +14,39 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, can
     else:
         current_year = datetime.datetime.now().year
 
+    # ====================== DANGEROUS DELETE BUTTON ======================
+    st.warning("⚠️ **Danger Zone** – Delete data from previous years")
+    if st.button("🗑️ Delete ALL Health Information from Previous Years", type="secondary"):
+        st.session_state.delete_confirm = True
+
+    if st.session_state.get("delete_confirm"):
+        st.error(f"""
+        **Are you sure?**  
+        This will permanently delete ALL player records from years **before {current_year}**.  
+        This action cannot be undone.
+        """)
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Yes, Delete Previous Years Data", type="primary"):
+                # Perform the deletion
+                if 'Timestamp' in players_df.columns:
+                    players_df['RegYear'] = pd.to_datetime(players_df['Timestamp'], errors='coerce').dt.year
+                    players_to_keep = players_df[players_df['RegYear'] == current_year].copy()
+                    
+                    sheet.worksheet("Players").update(
+                        [players_to_keep.columns.values.tolist()] + 
+                        players_to_keep.fillna("").values.tolist()
+                    )
+                    
+                    st.success(f"✅ Successfully deleted all data from previous years. Only {current_year} data remains.")
+                    st.session_state.delete_confirm = False
+                    st.cache_data.clear()
+                    st.rerun()
+        with col2:
+            if st.button("❌ Cancel", type="secondary"):
+                st.session_state.delete_confirm = False
+                st.rerun()
+
     # ====================== TEAM SELECTOR ======================
     if can_see_all_teams:
         team_options = ["All Teams"] + sorted(teams_df["TeamName"].dropna().unique().tolist())
@@ -25,7 +58,6 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, can
     # ====================== FILTER ROSTER TO CURRENT YEAR ONLY ======================
     roster = players_df.copy()
 
-    # Filter to current year
     if 'Timestamp' in roster.columns:
         roster['RegYear'] = pd.to_datetime(roster['Timestamp'], errors='coerce').dt.year
         roster = roster[roster['RegYear'] == current_year]
@@ -39,7 +71,7 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, can
 
     st.subheader(f"Roster for {selected_team} – {current_year} Season")
 
-    # Robust lookup for the medical details column
+    # Medical details column lookup
     details_col = None
     for col in roster.columns:
         col_str = str(col).lower()
@@ -62,7 +94,6 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, can
 
         alert_text = " | ".join(alerts) if alerts else ""
 
-        # Build the top bar with medical details included
         details = ""
         if details_col and details_col in player:
             details = str(player[details_col]).strip()
