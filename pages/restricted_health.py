@@ -24,15 +24,13 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, can
 
     st.subheader(f"Roster for {selected_team}")
 
-    # Robust lookup for the two new medical columns
+    # Robust lookup for the medical details column
     details_col = None
-    medications_col = None
     for col in roster.columns:
         col_str = str(col).lower()
         if "provide details" in col_str or "medications, allergies" in col_str:
             details_col = col
-        if "please list medications" in col_str or "list medications" in col_str:
-            medications_col = col
+            break
 
     for _, player in roster.iterrows():
         alerts = []
@@ -49,7 +47,21 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, can
 
         alert_text = " | ".join(alerts) if alerts else ""
 
-        with st.expander(f"{player.get('First Name','')} {player.get('Last Name','')} {'⚠️ ' + alert_text if alert_text else ''}"):
+        # Build the top bar (expander title) with medical details included
+        details = ""
+        if details_col and details_col in player:
+            details = str(player[details_col]).strip()
+            if details and details.lower() not in ["", "nan", "none", "n/a"]:
+                details = f" | Details: {details}"
+
+        title = f"{player.get('First Name','')} {player.get('Last Name','')}"
+        if alert_text:
+            title += f" ⚠️ {alert_text}{details}"
+        else:
+            title += details
+
+        with st.expander(title):
+            # Inside the expander we still show the full details for clarity
             if alert_text:
                 st.error(f"**MEDICAL ALERT:** {alert_text}")
 
@@ -63,15 +75,9 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, can
             st.write(f"**Asthma:** {player.get('Does your player have Asthma?', 'No')}")
             st.write(f"**Medication:** {player.get('Does your player take any Medications?', 'None')}")
 
-            # NEW: Added the two requested columns
             if details_col and details_col in player:
-                details = str(player[details_col]).strip()
-                if details and details.lower() not in ["", "nan", "none", "n/a"]:
-                    st.write(f"**Medical Details / Medications / Allergies:** {details}")
-
-            if medications_col and medications_col in player:
-                meds = str(player[medications_col]).strip()
-                if meds and meds.lower() not in ["", "nan", "none", "n/a"]:
-                    st.write(f"**Please list medications:** {meds}")
+                details_text = str(player[details_col]).strip()
+                if details_text and details_text.lower() not in ["", "nan", "none", "n/a"]:
+                    st.write(f"**Medical Details / Medications / Allergies:** {details_text}")
 
     st.caption("✅ Restricted Health Data")
