@@ -7,10 +7,30 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
     st.header("🏈 Coach Portal")
     st.subheader(f"Welcome, {name}")
 
+    # ====================== YEAR SELECTOR ======================
+    selected_year = st.selectbox(
+        "Select Season Year",
+        [2024, 2025, 2026, 2027],
+        index=2,                    # Default to 2026
+        key="coach_year_select"
+    )
+
     if st.button("🔄 Refresh My Teams", type="primary", width='stretch'):
         st.cache_data.clear()
         st.rerun()
 
+    # ====================== FILTER PLAYERS BY SELECTED YEAR ======================
+    df = players_df.copy()
+    df['PlayerID'] = (df['First Name'].astype(str).str.strip() + "_" +
+                      df['Last Name'].astype(str).str.strip() + "_" +
+                      df['Birthdate'].astype(str).str.strip())
+
+    if 'Timestamp' in df.columns:
+        df['RegYear'] = pd.to_datetime(df['Timestamp'], errors='coerce').dt.year
+        df = df[df['RegYear'] == selected_year]
+        df = df.sort_values('Timestamp', ascending=False).drop_duplicates(subset='PlayerID', keep='first')
+
+    # ====================== MY TEAMS ======================
     if is_admin:
         my_teams = teams_df["TeamName"].dropna().unique().tolist()
     else:
@@ -22,7 +42,8 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
 
     selected_team = st.selectbox("Select Team to View", my_teams, key="coach_team_select")
 
-    coach_roster = players_df[players_df.get("Team Assignment", "") == selected_team].copy()
+    # Filter roster to selected team + selected year
+    coach_roster = df[df.get("Team Assignment", "") == selected_team].copy()
 
     search = st.text_input("🔍 Search roster", key="coach_search")
     if search:
@@ -72,8 +93,4 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
     if not alerts_found:
         st.success("No medical alerts for this team.")
 
-    # Optional debug (remove later if you want)
-    with st.expander("🔍 Debug: Column names (click to see)"):
-        st.write(coach_roster.columns.tolist())
-
-    st.caption("✅ Coach Portal")
+    st.caption(f"✅ Coach Portal – {selected_year} Season")
