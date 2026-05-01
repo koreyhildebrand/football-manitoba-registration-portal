@@ -6,6 +6,22 @@ import datetime
 def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet, can_see_all_teams: bool, allowed_teams: list):
     st.header("🔒 Restricted Health Data")
 
+    # ====================== CUSTOM CSS FOR BRIGHT ORANGE BUTTON ======================
+    st.markdown("""
+        <style>
+            .stButton > button[kind="secondary"] {
+                background-color: #FF8C00 !important;
+                color: white !important;
+                font-weight: bold !important;
+                border: 2px solid #FF4500 !important;
+            }
+            .stButton > button[kind="secondary"]:hover {
+                background-color: #FF4500 !important;
+                border-color: #FF8C00 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     # ====================== DYNAMIC CURRENT YEAR ======================
     if 'Timestamp' in players_df.columns and not players_df.empty:
         temp = players_df.copy()
@@ -14,25 +30,7 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, she
     else:
         current_year = datetime.datetime.now().year
 
-    # ====================== HEALTH COLUMNS TO CLEAR ======================
-    health_columns = [
-        "MB Health Number:",
-        "Does your player have a History of Concussions?",
-        "Does your player wear Glasses/Contact Lenses?",
-        "Does your player have Asthma?",
-        "Is your player a Diabetic?",
-        "Does your player have Allergies?",
-        "Does your player have Epilepsy?",
-        "Does your player have a Hearing Problem?",
-        "Does your player have a Heart Condition?",
-        "Does your player take any Medications?",
-        "Has your player had Surgery in the last year?",
-        "Has your player had Injuries requiring medical attention in the past year?",
-        'If you answered "Yes" to any of the above questions please provide details:(List Medications, Allergies etc..)',
-        "(*Any medical condition or injury problem should be checked by your physician before participating in a football program), Please list medications"
-    ]
-
-    # ====================== DANGEROUS DELETE BUTTON ======================
+    # ====================== DANGEROUS DELETE BUTTON (now bright orange) ======================
     st.warning("⚠️ **Danger Zone** – Clear health data from previous years")
     if st.button("🗑️ Clear ALL Health Information from Previous Years", type="secondary"):
         st.session_state.delete_confirm = True
@@ -54,7 +52,24 @@ def show_restricted_health(players_df: pd.DataFrame, teams_df: pd.DataFrame, she
                     players_to_update['RegYear'] = pd.to_datetime(players_to_update['Timestamp'], errors='coerce').dt.year
                     prev_year_mask = players_to_update['RegYear'] < current_year
 
-                    # Safely convert health columns to object/string type first
+                    # Health columns to clear
+                    health_columns = [
+                        "MB Health Number:",
+                        "Does your player have a History of Concussions?",
+                        "Does your player wear Glasses/Contact Lenses?",
+                        "Does your player have Asthma?",
+                        "Is your player a Diabetic?",
+                        "Does your player have Allergies?",
+                        "Does your player have Epilepsy?",
+                        "Does your player have a Hearing Problem?",
+                        "Does your player have a Heart Condition?",
+                        "Does your player take any Medications?",
+                        "Has your player had Surgery in the last year?",
+                        "Has your player had Injuries requiring medical attention in the past year?",
+                        'If you answered "Yes" to any of the above questions please provide details:(List Medications, Allergies etc..)',
+                        "(*Any medical condition or injury problem should be checked by your physician before participating in a football program), Please list medications"
+                    ]
+
                     for col in health_columns:
                         if col in players_to_update.columns:
                             players_to_update[col] = players_to_update[col].astype(object)
