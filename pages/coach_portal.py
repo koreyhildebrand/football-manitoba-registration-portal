@@ -21,6 +21,7 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
         return
 
     selected_team = st.selectbox("Select Team to View", my_teams, key="coach_team_select")
+
     coach_roster = players_df[players_df.get("Team Assignment", "") == selected_team].copy()
 
     search = st.text_input("🔍 Search roster", key="coach_search")
@@ -31,17 +32,37 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
     available_cols = [c for c in display_cols if c in coach_roster.columns]
     st.dataframe(coach_roster[available_cols], width='stretch', hide_index=True)
 
+    # ====================== MEDICAL ALERTS ======================
     st.subheader("⚠️ Medical Alerts")
+
+    # Long column name from your sheet
+    details_col = 'If you answered "Yes" to any of the above questions please provide details:(List Medications, Allergies etc..)'
+
     alerts_found = False
     for _, player in coach_roster.iterrows():
         alerts = []
-        if player.get("Does your player have a History of Concussions?") == "Yes": alerts.append("Concussion History")
-        if str(player.get("Does your player have Allergies?", "")).strip() not in ["", "nan", "None", "N/A"]: alerts.append("Allergies")
-        if player.get("Does your player have Epilepsy?") == "Yes": alerts.append("Epilepsy")
-        if player.get("Does your player have a Heart Condition?") == "Yes": alerts.append("Heart Condition")
-        if player.get("Is your player a Diabetic?") == "Yes": alerts.append("Diabetic")
+        if player.get("Does your player have a History of Concussions?") == "Yes":
+            alerts.append("Concussion History")
+        if str(player.get("Does your player have Allergies?", "")).strip() not in ["", "nan", "None", "N/A"]:
+            alerts.append("Allergies")
+        if player.get("Does your player have Epilepsy?") == "Yes":
+            alerts.append("Epilepsy")
+        if player.get("Does your player have a Heart Condition?") == "Yes":
+            alerts.append("Heart Condition")
+        if player.get("Is your player a Diabetic?") == "Yes":
+            alerts.append("Diabetic")
+
         if alerts:
             alerts_found = True
-            st.error(f"**{player.get('First Name','')} {player.get('Last Name','')}** – {' | '.join(alerts)}")
+            details = str(player.get(details_col, "")).strip()
+            details_text = f"\n**Details:** {details}" if details and details.lower() not in ["", "nan", "none", "n/a"] else ""
+
+            st.error(
+                f"**{player.get('First Name','')} {player.get('Last Name','')}** – "
+                f"{' | '.join(alerts)}{details_text}"
+            )
+
     if not alerts_found:
         st.success("No medical alerts for this team.")
+
+    st.caption("✅ Coach Portal")
