@@ -11,7 +11,7 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
     selected_year = st.selectbox(
         "Select Season Year",
         [2024, 2025, 2026, 2027],
-        index=2,                    # Default to 2026
+        index=2,
         key="coach_year_select"
     )
 
@@ -30,19 +30,30 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
         df = df[df['RegYear'] == selected_year]
         df = df.sort_values('Timestamp', ascending=False).drop_duplicates(subset='PlayerID', keep='first')
 
-    # ====================== MY TEAMS ======================
+    # ====================== MY TEAMS – ONLY FOR SELECTED YEAR ======================
     if is_admin:
-        my_teams = teams_df["TeamName"].dropna().unique().tolist()
+        # Admin sees all teams that have players in the selected year
+        active_teams = df["Team Assignment"].dropna().unique().tolist()
+        my_teams = sorted([t for t in active_teams if t])
     else:
-        my_teams = teams_df[teams_df.get("Coach", "").str.contains(name, case=False, na=False)]["TeamName"].tolist()
+        # Coach only sees teams they coach that have players in the selected year
+        coached_teams_all_years = teams_df[
+            teams_df.get("Coach", "").str.contains(name, case=False, na=False)
+        ]["TeamName"].tolist()
+
+        # Only keep teams that actually have players in the selected year
+        my_teams = [
+            team for team in coached_teams_all_years
+            if team in df["Team Assignment"].values
+        ]
 
     if not my_teams:
-        st.warning("You are not currently assigned as coach to any team.")
+        st.warning(f"You are not currently assigned as coach to any team in the {selected_year} season.")
         return
 
-    selected_team = st.selectbox("Select Team to View", my_teams, key="coach_team_select")
+    selected_team = st.selectbox("Select Team to View", sorted(my_teams), key="coach_team_select")
 
-    # Filter roster to selected team + selected year
+    # ====================== ROSTER ======================
     coach_roster = df[df.get("Team Assignment", "") == selected_team].copy()
 
     search = st.text_input("🔍 Search roster", key="coach_search")
@@ -56,7 +67,6 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
     # ====================== MEDICAL ALERTS ======================
     st.subheader("⚠️ Medical Alerts")
 
-    # Robust search for the long medical details column
     details_col = None
     for col in coach_roster.columns:
         if "provide details" in str(col).lower() or "medications, allergies" in str(col).lower():
@@ -79,10 +89,7 @@ def show_coach_portal(players_df: pd.DataFrame, teams_df: pd.DataFrame, name: st
 
         if alerts:
             alerts_found = True
-            details = ""
-            if details_col and details_col in player:
-                details = str(player[details_col]).strip()
-            
+            details = str(player.get(details_col, "")).strip() if details_col else ""
             details_text = f"\n**Details:** {details}" if details and details.lower() not in ["", "nan", "none", "n/a"] else ""
 
             st.error(
