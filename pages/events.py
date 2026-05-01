@@ -6,7 +6,7 @@ from utils.helpers import to_bool
 
 
 def show_events(sheet):
-    """Events / Check-In Page – Auto-refresh after save"""
+    """Events / Check-In Page – Fixed warnings + auto-refresh after save"""
     st.header("🏕️ Events & Check-In")
 
     WORKSHEET_NAME = "EventsRegistration"
@@ -17,14 +17,14 @@ def show_events(sheet):
         st.warning(f"No data found in worksheet '{WORKSHEET_NAME}'")
         return
 
-    # Rename columns
+    # Rename columns for clean display
     rename_map = {
         "Product Form: Player Name": "Player Name",
         "Lineitem name": "Session"
     }
     df = df.rename(columns=rename_map)
 
-    # Ensure required columns
+    # Ensure required columns exist
     if "Player Name" not in df.columns:
         df["Player Name"] = "Unknown"
     if "Session" not in df.columns:
@@ -54,11 +54,11 @@ def show_events(sheet):
     total_players = len(df_display)
     st.subheader(f"Check-In Table ({checked_in_count} / {total_players} players checked in)")
 
-    # Interactive table
+    # Interactive data editor - fixed deprecation warning
     edited_df = st.data_editor(
         df_display,
         hide_index=True,
-        use_container_width=False,
+        width="content",                    # ← Fixed deprecation
         column_config={
             "Checked In": st.column_config.CheckboxColumn("Checked In", default=False, width=120),
             "Player Name": st.column_config.TextColumn("Player Name", disabled=True, width=280),
@@ -97,5 +97,8 @@ def show_events(sheet):
 
     st.caption(f"✅ Showing data from worksheet: **{WORKSHEET_NAME}**")
 
+    # Safe raw data viewer (fixed Arrow serialization error)
     with st.expander("🔍 Show full raw data (for debugging)"):
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df.fillna("").astype(str), width="stretch")
+
+    st.caption(f"✅ Showing data from worksheet: **{WORKSHEET_NAME}**")
