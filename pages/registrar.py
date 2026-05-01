@@ -5,12 +5,25 @@ from utils.helpers import calculate_age_group, filter_by_team
 
 
 def show_registrar(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet, events_df: pd.DataFrame, can_see_all_teams: bool, allowed_teams: list):
-    """Registrar page – Event Creation subpage removed."""
+    """Registrar page – Now filtered to selected year across all tabs."""
     st.header("📋 Registrar")
-    
-    selected_year = st.selectbox("Select Season Year", [2024, 2025, 2026, 2027], index=2, key="global_season_year")
 
-    # ====================== SUB-PAGE BUTTONS (now 3 columns) ======================
+    # ====================== DYNAMIC YEAR SELECTOR ======================
+    if 'Timestamp' in players_df.columns and not players_df.empty:
+        temp = players_df.copy()
+        temp['RegYear'] = pd.to_datetime(temp['Timestamp'], errors='coerce').dt.year
+        current_year = int(temp['RegYear'].max()) if not temp['RegYear'].isna().all() else datetime.datetime.now().year
+    else:
+        current_year = datetime.datetime.now().year
+
+    selected_year = st.selectbox(
+        "Select Season Year",
+        [2024, 2025, 2026, 2027],
+        index=[2024, 2025, 2026, 2027].index(current_year) if current_year in [2024, 2025, 2026, 2027] else 2,
+        key="registrar_year_select"
+    )
+
+    # ====================== SUB-PAGE BUTTONS ======================
     sub_col1, sub_col2, sub_col3 = st.columns(3)
     with sub_col1:
         if st.button("📊 Dashboard", key="reg_dashboard", width='stretch'):
@@ -26,19 +39,21 @@ def show_registrar(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet, even
         st.session_state.reg_subpage = "Dashboard"
     subpage = st.session_state.reg_subpage
 
+    # ====================== FILTER TO SELECTED YEAR ======================
     df_filtered = filter_by_team(players_df.copy(), can_see_all_teams, allowed_teams)
 
-    if subpage == "Dashboard":
-        df = df_filtered.copy()
-        df['PlayerID'] = (df['First Name'].astype(str).str.strip() + "_" +
-                          df['Last Name'].astype(str).str.strip() + "_" +
-                          df['Birthdate'].astype(str).str.strip())
-        
-        if 'Timestamp' in df.columns:
-            df['RegYear'] = pd.to_datetime(df['Timestamp'], errors='coerce').dt.year
-            df = df[df['RegYear'] == selected_year]
-            df = df.sort_values('Timestamp', ascending=False).drop_duplicates(subset='PlayerID', keep='first')
+    # Apply year filter
+    df = df_filtered.copy()
+    df['PlayerID'] = (df['First Name'].astype(str).str.strip() + "_" +
+                      df['Last Name'].astype(str).str.strip() + "_" +
+                      df['Birthdate'].astype(str).str.strip())
 
+    if 'Timestamp' in df.columns:
+        df['RegYear'] = pd.to_datetime(df['Timestamp'], errors='coerce').dt.year
+        df = df[df['RegYear'] == selected_year]
+        df = df.sort_values('Timestamp', ascending=False).drop_duplicates(subset='PlayerID', keep='first')
+
+    if subpage == "Dashboard":
         df['AgeGroup'] = df['Birthdate'].apply(lambda x: calculate_age_group(x, selected_year))
         df['BirthYear'] = pd.to_datetime(df['Birthdate'], errors='coerce').dt.year
 
@@ -76,7 +91,7 @@ def show_registrar(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet, even
             st.rerun()
         
         show_unassigned = st.toggle("Show only players not assigned to a team", value=True, key="unassigned_toggle")
-        available_players = df_filtered[df_filtered.get("Team Assignment", "").isna() | (df_filtered.get("Team Assignment", "") == "")] if show_unassigned else df_filtered
+        available_players = df[df.get("Team Assignment", "").isna() | (df.get("Team Assignment", "") == "")] if show_unassigned else df
         
         player_list = (available_players["First Name"].astype(str) + " " + available_players["Last Name"].astype(str)).tolist()
         p_sel = st.selectbox("Select Player", player_list, key="assign_player") if player_list else None
@@ -126,7 +141,7 @@ def show_registrar(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet, even
             st.cache_data.clear()
             st.rerun()
         
-        df_to_show = df_filtered.copy()
+        df_to_show = df.copy()
         
         team_options = ["All Teams"] + sorted(teams_df["TeamName"].dropna().unique().tolist()) if not teams_df.empty else ["All Teams"]
         selected_team_filter = st.selectbox("Filter by Assigned Team", team_options, key="players_team_filter")
@@ -141,6 +156,6 @@ def show_registrar(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet, even
         display_cols = ["First Name", "Last Name", "AgeGroup", "Contact Phone Number", "Email", "Team Assignment"]
         available_cols = [c for c in display_cols if c in df_to_show.columns]
         st.dataframe(df_to_show[available_cols], width='stretch', hide_index=True)
-        st.caption(f"Showing {len(df_to_show)} players")
+        st.caption(f"Showing {len(df_to_show)} players in {selected_year}")
 
-    st.caption(f"✅ St. Vital Mustangs Registration Portal | Registrar")
+    st.caption(f"✅ St. Vital Mustangs Registration Portal | Registrar – {selected_year} Season")
