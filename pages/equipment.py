@@ -7,7 +7,7 @@ from utils.helpers import to_bool
 
 
 def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
-    """Equipment page – Mouth Guard is now automatically cleared on any return."""
+    """Equipment page – Auto-refresh player list after Save or Return"""
     st.header("🛡️ Equipment Management")
 
     # ====================== RENTAL YEAR SELECTOR ======================
@@ -186,7 +186,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
 
                     waiver = st.checkbox("Parent Signed Waiver", value=to_bool(existing.get("Parent Signed Waiver")), key=f"waiver_r_{idx}")
 
-                # Save Rental
+                # ====================== SAVE RENTAL ======================
                 if st.button("💾 Save Rental for this Player", key=f"save_rental_{idx}", type="primary"):
                     new_row = {
                         "PlayerID": player_id,
@@ -208,7 +208,7 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                     equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
                     sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
                     st.success(f"✅ Rental saved for {player.get('First Name')} {player.get('Last Name')}")
-                    time.sleep(0.5)
+                    st.cache_data.clear()   # ← Force refresh
                     st.rerun()
 
                 # ====================== RETURN SECTION ======================
@@ -244,17 +244,14 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
                         if red_ret: new_row["Practice Jersey Red"] = False
                         if black_ret: new_row["Practice Jersey Black"] = False
                         if white_ret: new_row["Practice Jersey White"] = False
-                        
-                        # 🔥 NEW: Automatically clear Mouth Guard on any return
                         new_row["Mouth Guard"] = False
-
                         new_row["ReturnDate"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
                         equipment_df = equipment_df[equipment_df.get("PlayerID", pd.Series([])) != player_id]
                         equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
                         sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
                         st.success(f"✅ Equipment returned for {player.get('First Name')} {player.get('Last Name')}")
-                        time.sleep(0.5)
+                        st.cache_data.clear()   # ← Force refresh
                         st.rerun()
 
     # ====================== ALL CURRENT RENTALS ======================
@@ -310,4 +307,4 @@ def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
         else:
             st.info("No equipment is currently rented out.")
 
-    st.caption(f"✅ St. Vital Mustangs Registration Portal | v4.00")
+    st.caption(f"✅ St. Vital Mustangs Registration Portal | v4.03")
