@@ -4,12 +4,12 @@ from utils.sheets import get_worksheet_data
 
 
 def show_events(sheet):
-    """Events / Check-In Page – Clean view with Player Name, Session, and CheckIn checkbox."""
-    st.header("📅 Events & Check-In")
+    """Events / Check-In Page – Uses EventsRegistration worksheet"""
+    st.header("🏕️ Events & Check-In")
 
-    # ====================== CHANGE THIS IF YOUR WORKSHEET HAS A DIFFERENT NAME ======================
-    WORKSHEET_NAME = "Orders"          # ←←← Change this if needed (e.g. "Shopify Orders", "Event Orders")
-    # ===============================================================================================
+    # ====================== WORKSHEET NAME ======================
+    WORKSHEET_NAME = "EventsRegistration"   # ← Correct name as you requested
+    # ============================================================
 
     df = get_worksheet_data(WORKSHEET_NAME)
 
@@ -17,24 +17,23 @@ def show_events(sheet):
         st.warning(f"No data found in worksheet '{WORKSHEET_NAME}'")
         return
 
-    # Rename columns for clean display
+    # Rename columns for clean display (exactly as you requested)
     rename_map = {
         "Product Form: Player Name": "Player Name",
         "Lineitem name": "Session"
     }
     df = df.rename(columns=rename_map)
 
-    # Keep only the columns we want + add Checked In if missing
+    # Keep only the columns we want + add Checked In column if missing
     display_cols = ["Player Name", "Session"]
     if "Checked In" not in df.columns:
         df["Checked In"] = False
 
-    # Reorder and keep only what we need for the editor
     df_display = df[display_cols + ["Checked In"]].copy()
 
     st.subheader("Check-In Table")
 
-    # Interactive editor
+    # Interactive data editor
     edited_df = st.data_editor(
         df_display,
         hide_index=True,
@@ -50,7 +49,7 @@ def show_events(sheet):
     col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("💾 Save Check-ins", type="primary"):
-            # Merge the edited Checked In values back into the original dataframe
+            # Merge the edited Checked In values back
             df["Checked In"] = edited_df["Checked In"]
 
             # Write back to Google Sheet
@@ -62,6 +61,6 @@ def show_events(sheet):
 
     st.caption(f"✅ Showing data from worksheet: **{WORKSHEET_NAME}**")
 
-    # Optional: show raw data for debugging
+    # Optional raw data viewer
     with st.expander("🔍 Show full raw data (for debugging)"):
         st.dataframe(df, use_container_width=True)
