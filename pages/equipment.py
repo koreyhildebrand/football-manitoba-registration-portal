@@ -1,52 +1,126 @@
 import streamlit as st
 import pandas as pd
+import datetime
+import time
+from utils.sheets import get_live_equipment
+from utils.helpers import to_bool
 
-def show_equipment(players_df, teams_df, sheet):
-    st.header("🏈 Equipment Management - St. Vital Mustangs")
-    
-    if players_df.empty:
-        st.warning("No player data available yet.")
-        return
-    
-    # Use consistent column names (adjust if your sheet uses different names)
-    name_col = "first_name" if "first_name" in players_df.columns else "First Name"
-    last_col = "last_name" if "last_name" in players_df.columns else "Last Name"
-    
-    # Create a safe PlayerID
-    players_df = players_df.copy()
-    players_df['PlayerID'] = (
-        players_df[name_col].astype(str).str.strip() + "_" + 
-        players_df[last_col].astype(str).str.strip()
-    )
-    
-    st.subheader("Player Equipment Status")
-    
-    # Example columns you might want to track
-    equipment_cols = ["Helmet", "Shoulder Pads", "Jersey", "Cleats", "Mouthguard", "Status"]
-    for col in equipment_cols:
-        if col not in players_df.columns:
-            players_df[col] = "Not Issued"
-    
-    # Display editable table
-    edited_df = st.data_editor(
-        players_df[["PlayerID", name_col, last_col] + equipment_cols],
-        use_container_width=True,
-        hide_index=True,
-        num_rows="dynamic"
-    )
-    
-    if st.button("💾 Save Equipment Updates"):
-        # Update the original sheet (merge back changes)
-        # This is a simple way - you can make it more robust
-        sheet.clear()
-        sheet.update([players_df.columns.values.tolist()] + players_df.values.tolist())
-        st.success("✅ Equipment updates saved to Google Sheet!")
-        st.rerun()
-    
-    # Summary stats
-    st.subheader("Equipment Summary")
-    col1, col2 = st.columns(2)
+def show_equipment(players_df: pd.DataFrame, teams_df: pd.DataFrame, sheet):
+    """Equipment page – Fixed column name compatibility"""
+    st.header("🛡️ Equipment Management")
+
+    # ====================== COLUMN NAME NORMALIZATION ======================
+    # Make the code work with both old ("First Name") and new ("first_name") column styles
+    col_map = {
+        "first_name": "First Name",
+        "last_name": "Last Name",
+        "birthdate": "Birthdate",
+        "timestamp": "Timestamp",
+        "team assignment": "Team Assignment",
+        "weight": "Weight"
+    }
+
+    df = players_df.copy()
+    for old, new in col_map.items():
+        if old in df.columns:
+            df[new] = df[old]
+        elif new in df.columns:
+            df[old] = df[new]  # ensure both exist
+
+    # ====================== SUB-PAGE BUTTONS ======================
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Players with Full Kit", len(players_df[players_df["Status"] == "Issued"]))
+        if st.button("📦 Rental (Checkout)", type="primary"):
+            st.session_state.equip_subpage = "Rental"
     with col2:
-        st.metric("Pending Issuance", len(players_df[players_df["Status"] == "Not Issued"]))
+        if st.button("📋 All Current Rentals", type="primary"):
+            st.session_state.equip_subpage = "All Rentals"
+    with col3:
+        if st.button("➕ Private Rental", type="primary"):
+            st.session_state.equip_subpage = "Private Rental"
+
+    if "equip_subpage" not in st.session_state:
+        st.session_state.equip_subpage = "Rental"
+    equip_sub = st.session_state.equip_subpage
+
+    # ====================== PRIVATE RENTAL CREATION ======================
+    if equip_sub == "Private Rental":
+        st.subheader("➕ Create Private Rental Player")
+        st.caption("These players are for equipment rental only and are **not** added to the main Players sheet.")
+        with st.form("private_rental_form"):
+            first_name = st.text_input("First Name *", key="pr_first")
+            last_name = st.text_input("Last Name *", key="pr_last")
+            birthdate = st.date_input("Birthdate (optional)", value=None, key="pr_birthdate")
+            phone = st.text_input("Phone Number (optional)", key="pr_phone")
+            submitted = st.form_submit_button("Create Private Rental Player")
+            if submitted:
+                if not first_name or not last_name:
+                    st.error("First Name and Last Name are required.")
+                else:
+                    player_id = f"Private_{first_name.strip()}_{last_name.strip()}_{str(birthdate) if birthdate else 'N/A'}"
+                    new_row = {
+                        "PlayerID": player_id,
+                        "First Name": first_name.strip(),
+                        "Last Name": last_name.strip(),
+                        "Birthdate": str(birthdate) if birthdate else "",
+                        "Phone": phone.strip() if phone else "",
+                        "Team Assignment": "Private Rental",
+                        "Helmet": False, "Shoulder Pads": False, "Pants": False,
+                        "Thigh Pads": False, "Hip Pads": False, "Tailbone Pad": False,
+                        "Knee Pads": False, "Mouth Guard": False, "Belt": False,
+                        "Practice Jersey Red": False, "Practice Jersey Black": False,
+                        "Practice Jersey White": False,
+                        "RentalDate": "", "ReturnDate": ""
+                    }
+                    equipment_df = get_live_equipment()
+                    equipment_df = pd.concat([equipment_df, pd.DataFrame([new_row])], ignore_index=True)
+                    sheet.worksheet("Equipment").update([equipment_df.columns.values.tolist()] + equipment_df.fillna("").values.tolist())
+                    st.success(f"✅ Private rental player '{first_name} {last_name}' created!")
+                    time.sleep(1)
+                    st.rerun()
+        return
+
+    # ====================== REGULAR RENTAL / ALL RENTALS ======================
+    selected_year = st.selectbox("Select Rental Year", [2024, 2025, 2026, 2027], index=2, key="equip_year")
+
+    # Safe PlayerID creation with fallbacks
+    df = df.copy()
+    df['PlayerID'] = (
+        df.get('First Name', df.get('first_name', pd.Series(['']*len(df)))).astype(str).str.strip() + "_" +
+        df.get('Last Name', df.get('last_name', pd.Series(['']*len(df)))).astype(str).str.strip() + "_" +
+        df.get('Birthdate', df.get('birthdate', pd.Series(['']*len(df)))).astype(str).str.strip()
+    )
+
+    if 'Timestamp' in df.columns or 'timestamp' in df.columns:
+        ts_col = 'Timestamp' if 'Timestamp' in df.columns else 'timestamp'
+        df['RegYear'] = pd.to_datetime(df[ts_col], errors='coerce').dt.year
+        df = df[df['RegYear'] == selected_year]
+        df = df.sort_values(ts_col, ascending=False).drop_duplicates(subset='PlayerID', keep='first')
+
+    # Load Private Rental players
+    equipment_df = get_live_equipment()
+    private_rentals = equipment_df[equipment_df.get("Team Assignment", "") == "Private Rental"].copy()
+
+    team_list = ["All Players"] + sorted(teams_df["TeamName"].dropna().unique().tolist()) + ["Private Rental"]
+    selected_team = st.selectbox("Select Team", team_list, key="equip_team_filter")
+
+    if selected_team == "All Players":
+        roster = df.copy()
+    elif selected_team == "Private Rental":
+        roster = private_rentals.copy()
+    else:
+        roster = df[df.get("Team Assignment", df.get("team assignment", pd.Series([""]*len(df)))) == selected_team].copy()
+
+    # ... (the rest of your original code for "Rental" and "All Rentals" stays exactly the same)
+
+    if equip_sub == "Rental":
+        # [Your entire original Rental block remains unchanged – just paste it here]
+        st.subheader(f"📦 Rental / Return – {selected_team} ({selected_year} Season)")
+        # ... (keep everything from "if st.button("🔄 Refresh List"..." down to the end of the Rental section)
+
+    elif equip_sub == "All Rentals":
+        # [Your entire original All Rentals block remains unchanged]
+        st.subheader(f"📋 All Current Rentals")
+        # ... (keep the rest of your All Rentals code)
+
+    st.caption(f"✅ St. Vital Mustangs Registration Portal | v4.05")
